@@ -308,7 +308,7 @@ def update_swap_analysis(data_json):
 
         for player in roster:
             player_name = player.get("name", "")
-            
+
             # Check both possible field names for recommendations
             recommendation = ""
             if "openai_rec" in player:
@@ -1379,7 +1379,7 @@ def render_swap_analysis_tab(data: Dict[str, Any]) -> html.Div:
             recommendation = player["openai_rec"].get("recommendation", "")
         else:
             recommendation = player.get("recommendation", "")
-            
+
         if "Consider Swap" in recommendation:
             swap_candidates.append(player)
 
@@ -1411,18 +1411,14 @@ def render_swap_analysis_tab(data: Dict[str, Any]) -> html.Div:
         else:
             recommendation = player.get("recommendation", "")
             rationale = player.get("rationale", "")
-            
+
         swap_target = "Unknown Player"
         fp_improvement = 0
 
         if "Patrick Kane" in recommendation:
             swap_target = "Patrick Kane"
-            # Extract FP improvement from rationale text
-            import re
-
-            match = re.search(r"\+(\d+\.?\d*) FP/G improvement", rationale)
-            if match:
-                fp_improvement = float(match.group(1))
+            # Don't extract FP improvement - let AI calculate it independently
+            fp_improvement = 0  # Will be calculated by AI analysis
 
         # Create swap analysis card
         card = html.Div(
@@ -1435,7 +1431,7 @@ def render_swap_analysis_tab(data: Dict[str, Any]) -> html.Div:
                     [
                         html.P(f"Position: {position} | Team: {team}"),
                         html.P(f"Current FP/G: {current_fp:.2f}"),
-                        html.P(f"Potential Improvement: +{fp_improvement:.1f} FP/G"),
+                        html.P(f"Potential Target: {swap_target}"),
                     ],
                     style={"marginBottom": "15px"},
                 ),
