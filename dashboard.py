@@ -302,7 +302,7 @@ def render_tab_content(active_tab, data_json):
         Output("swap-analysis-Matvei-Michkov", "children", allow_duplicate=True),
     ],
     [Input("data-store", "children")],
-    prevent_initial_call='initial_duplicate',  # Allow callback to run on initial load with duplicates
+    prevent_initial_call="initial_duplicate",  # Allow callback to run on initial load with duplicates
 )
 def update_swap_analysis(data_json):
     """Update swap analysis with OpenAI insights"""
@@ -342,7 +342,9 @@ def update_swap_analysis(data_json):
                     print(f"DEBUG: Found swap {player_name} → {target_player}")
 
                     # Get detailed analysis for this swap
+                    print(f"DEBUG: Calling get_detailed_swap_analysis for {player_name} → {target_player}")
                     analysis = get_detailed_swap_analysis(player, target_player)
+                    print(f"DEBUG: Analysis result: {analysis[:100]}...")
 
                     if player_name == "Matt Coronato":
                         coronato_analysis = analysis
@@ -462,7 +464,6 @@ def get_detailed_swap_analysis(
                 },
                 {"role": "user", "content": prompt},
             ],
-            tools=[{"type": "web_search"}],  # Enable web search
             max_tokens=1000,
         )
 
