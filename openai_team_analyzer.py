@@ -49,10 +49,10 @@ class OpenAITeamAnalyzer:
                     )
 
                     # Determine recommendation (more lenient thresholds)
-                    if swap_score >= 10:
+                    if swap_score >= 7:
                         recommendation = "Must Swap"
                         rationale = f"Strong upgrade available: {best_target['name']} (+{actual_fp_improvement:.1f} FP/G improvement)"
-                    elif swap_score >= 2:
+                    elif swap_score >= 3:
                         recommendation = "Consider Swap"
                         rationale = f"Moderate upgrade: {best_target['name']} (+{actual_fp_improvement:.1f} FP/G improvement)"
                     else:
