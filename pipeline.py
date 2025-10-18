@@ -8,7 +8,7 @@ import logging
 from datetime import datetime
 from typing import Dict, Any
 from espn_client import ESPNFantasyClient
-from analyzer import FantasyHockeyAnalyzer
+from statistical_analyzer import FantasyHockeyAnalyzer
 from utils import setup_logging, send_notification
 
 # Set up logging

@@ -16,8 +16,8 @@ def main():
     
     try:
         # Run the main data collection
-        print("Running main.py for data collection...")
-        result = subprocess.run([sys.executable, 'main.py'], 
+        print("Running pipeline.py for data collection...")
+        result = subprocess.run([sys.executable, 'pipeline.py'], 
                               capture_output=True, 
                               text=True, 
                               cwd='/app')

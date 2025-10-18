@@ -15,7 +15,7 @@ def run_data_collection():
     
     try:
         # Run data collection with a longer timeout
-        result = subprocess.run([sys.executable, 'main.py'], 
+        result = subprocess.run([sys.executable, 'pipeline.py'], 
                               capture_output=True, 
                               text=True, 
                               cwd='/app',
