@@ -1,8 +1,14 @@
 [build]
-  command = "echo 'Static site - no build needed'"
+  command = "python -m pip install -r requirements.txt"
+  functions = "netlify/functions"
   publish = "."
 
-# For static site deployment
+# For Dash app deployment
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/:splat"
+  status = 200
+
 [[redirects]]
   from = "/*"
   to = "/index.html"
