@@ -35,13 +35,16 @@ class OpenAITeamAnalyzer:
                     swap_score = self._calculate_swap_score(player, swap_targets[0])
                     best_target = swap_targets[0]
 
+                    # Calculate actual FP/G improvement (without bonuses)
+                    actual_fp_improvement = best_target.get("fantasy_points_per_game", 0) - player_fp_per_game
+                    
                     # Determine recommendation
                     if swap_score >= 15:
                         recommendation = "Must Swap"
-                        rationale = f"Strong upgrade available: {best_target['name']} (+{swap_score:.1f} FP/G improvement)"
+                        rationale = f"Strong upgrade available: {best_target['name']} (+{actual_fp_improvement:.1f} FP/G improvement)"
                     elif swap_score >= 5:
                         recommendation = "Consider Swap"
-                        rationale = f"Moderate upgrade: {best_target['name']} (+{swap_score:.1f} FP/G improvement)"
+                        rationale = f"Moderate upgrade: {best_target['name']} (+{actual_fp_improvement:.1f} FP/G improvement)"
                     else:
                         recommendation = "Keep"
                         rationale = self._generate_low_score_rationale(
