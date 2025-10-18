@@ -342,7 +342,9 @@ def update_swap_analysis(data_json):
                     print(f"DEBUG: Found swap {player_name} → {target_player}")
 
                     # Get detailed analysis for this swap
-                    print(f"DEBUG: Calling get_detailed_swap_analysis for {player_name} → {target_player}")
+                    print(
+                        f"DEBUG: Calling get_detailed_swap_analysis for {player_name} → {target_player}"
+                    )
                     analysis = get_detailed_swap_analysis(player, target_player)
                     print(f"DEBUG: Analysis result: {analysis[:100]}...")
 
@@ -408,66 +410,44 @@ def get_detailed_swap_analysis(
         POTENTIAL TARGET: {target_player}
         """
 
-        prompt = f"""
-        {scoring_context}
-        
-        I am considering dropping **{current_player.get("name", "Unknown")}** for **{target_player}**.
-        
-        {player_context}
-        
-        Please perform a comprehensive fantasy hockey analysis comparing these two players under our custom scoring system.
-        
-        REQUIRED ANALYSIS STRUCTURE:
-        
-        1. CURRENT PERFORMANCE ANALYSIS:
-           - Convert both players' current season stats to our custom scoring system
-           - Calculate exact fantasy points per game (FP/G) for each player
-           - Analyze sample size and consistency of production
-           - Compare current performance levels
-        
-        2. CONTEXTUAL FACTORS:
-           - Team situations, line combinations, and power-play roles
-           - Recent news, injuries, or roster changes affecting ice time
-           - Schedule strength and upcoming matchups
-           - Historical track record and career trends
-           - Age and development trajectory
-        
-        3. STRATEGIC RECOMMENDATIONS:
-           - Long-term vs short-term value assessment
-           - Position scarcity and roster construction impact
-           - Risk vs reward analysis
-           - Specific drop/add recommendation with clear reasoning
-        
-        REQUIRED OUTPUT FORMAT:
-        
-        ### Player A vs Player B
-        [Detailed comparison with exact FP/G calculations using our scoring system]
-        
-        ### Context
-        [Team roles, recent developments, news, injuries, schedule analysis]
-        
-        ### Verdict
-        [Clear recommendation: DROP, KEEP, or CONSIDER with specific reasoning]
-        
-        ### Summary
-        [Actionable recommendation with key factors]
-        
-        Use current information from the internet to support your analysis. Be specific about fantasy point calculations using our exact scoring system.
-        """
+        prompt = f"""Find the latest updates on {current_player.get("name", "Unknown")} and {target_player} this week. 
 
-        response = client.chat.completions.create(
-            model="gpt-4o",
-            messages=[
-                {
-                    "role": "system",
-                    "content": "You are a fantasy hockey expert with access to current NHL news and analysis. You provide comprehensive, data-driven analysis similar to ChatGPT's agent mode. Always convert stats to the provided scoring system and give specific fantasy point calculations. Use current internet information to support your recommendations.",
-                },
-                {"role": "user", "content": prompt},
-            ],
-            max_tokens=1000,
+{scoring_context}
+
+I am considering dropping **{current_player.get("name", "Unknown")}** for **{target_player}**.
+
+{player_context}
+
+Please perform a comprehensive fantasy hockey analysis comparing these two players under our custom scoring system. Use web search to find:
+
+1. Current season stats and recent performance
+2. Recent news, injuries, or roster changes
+3. Team situations and line combinations
+4. Historical track record and career trends
+
+Provide your analysis in this format:
+
+### Player Comparison
+[Detailed comparison with exact FP/G calculations using our scoring system]
+
+### Context  
+[Team roles, recent developments, news, injuries, schedule analysis]
+
+### Verdict
+[Clear recommendation: DROP, KEEP, or CONSIDER with specific reasoning]
+
+### Summary
+[Actionable recommendation with key factors]
+
+Be specific about fantasy point calculations using our exact scoring system."""
+
+        response = client.responses.create(
+            model="gpt-4o-mini",  # Using mini for cost efficiency
+            input=prompt,
+            tools=[{"type": "web_search"}],  # Enable web search
         )
 
-        return response.choices[0].message.content
+        return response.output_text
 
     except Exception as e:
         return f"Analysis unavailable: {str(e)}"
