@@ -42,19 +42,31 @@ class OpenAITeamAnalyzer:
                     swap_score = self._calculate_swap_score(player, swap_targets[0])
                     best_target = swap_targets[0]
 
-                    # Calculate actual FP/G improvement (without bonuses)
+                    # Calculate value score improvement (includes historical precedence, consistency, etc.)
+                    player_value_score = player.get("analysis", {}).get(
+                        "value_score", 0
+                    )
+                    if player_value_score == 0:
+                        player_value_score = self._calculate_value_score(player)
+
+                    target_value_score = best_target.get("analysis", {}).get(
+                        "value_score", 0
+                    )
+                    value_score_improvement = target_value_score - player_value_score
+
+                    # Calculate actual FP/G improvement (without bonuses) for additional context
                     actual_fp_improvement = (
                         best_target.get("fantasy_points_per_game", 0)
                         - player_fp_per_game
                     )
 
                     # Determine recommendation (more lenient thresholds)
-                    if swap_score >= 7:
+                    if swap_score >= 6:
                         recommendation = "Must Swap"
-                        rationale = f"Strong upgrade available: {best_target['name']} (+{actual_fp_improvement:.1f} FP/G improvement)"
+                        rationale = f"Strong upgrade available: {best_target['name']} (+{value_score_improvement:.1f} value score, +{actual_fp_improvement:.1f} FP/G)"
                     elif swap_score >= 3:
                         recommendation = "Consider Swap"
-                        rationale = f"Moderate upgrade: {best_target['name']} (+{actual_fp_improvement:.1f} FP/G improvement)"
+                        rationale = f"Moderate upgrade: {best_target['name']} (+{value_score_improvement:.1f} value score, +{actual_fp_improvement:.1f} FP/G)"
                     else:
                         recommendation = "Keep"
                         rationale = self._generate_low_score_rationale(
@@ -566,17 +578,17 @@ Focus on actionable advice with concrete alternatives.
     def _find_swap_targets(
         self, player: Dict[str, Any], top_free_agents: List[Dict[str, Any]]
     ) -> List[Dict[str, Any]]:
-        """Find potential swap targets matching position"""
+        """Find potential swap targets matching position based on VALUE SCORE"""
         if not top_free_agents:
             return []
 
         player_position = player.get("position", "Unknown")
-        # Calculate FP/G from stats if not present
-        player_fp_per_game = player.get("fantasy_points_per_game", 0)
-        if player_fp_per_game == 0:
-            player_fp_per_game = self._calculate_fantasy_points_per_game(
-                player.get("stats", {})
-            )
+
+        # Get player's current value score (includes historical precedence, FP/G, consistency, etc.)
+        player_value_score = player.get("analysis", {}).get("value_score", 0)
+        if player_value_score == 0:
+            # Calculate value score if not present
+            player_value_score = self._calculate_value_score(player)
 
         # Position matching rules
         position_matches = {
@@ -589,21 +601,80 @@ Focus on actionable advice with concrete alternatives.
 
         matching_positions = position_matches.get(player_position, [])
 
-        # Find same position players with better FP/G
+        # Find same position players with better VALUE SCORE
         potential_targets = []
         for agent in top_free_agents:
             if agent.get("position") in matching_positions:
-                agent_fp_per_game = agent.get("fantasy_points_per_game", 0)
-                if agent_fp_per_game > player_fp_per_game:
+                agent_value_score = agent.get("analysis", {}).get("value_score", 0)
+                if agent_value_score > player_value_score:
                     potential_targets.append(agent)
 
-        # Sort by FP/G improvement (highest first)
+        # Sort by VALUE SCORE improvement (highest first)
         potential_targets.sort(
-            key=lambda x: x.get("fantasy_points_per_game", 0) - player_fp_per_game,
+            key=lambda x: x.get("analysis", {}).get("value_score", 0)
+            - player_value_score,
             reverse=True,
         )
 
         return potential_targets[:3]  # Top 3 targets
+
+    def _calculate_value_score(self, player: Dict[str, Any]) -> float:
+        """Calculate overall value score for a player (same as statistical analyzer)"""
+        analysis = player.get("analysis", {})
+
+        # Weighted scoring (removed injury risk)
+        weights = {
+            "fantasy_points_per_game": 0.5,  # Increased weight
+            "consistency_rating": 0.25,  # Increased weight
+            "upside_potential": 0.2,  # Increased weight
+            "position_scarcity": 0.05,  # Reduced weight
+        }
+
+        score = 0.0
+        score += (
+            player.get("fantasy_points_per_game", 0)
+            * weights["fantasy_points_per_game"]
+        )
+        score += analysis.get("consistency_rating", 0) * weights["consistency_rating"]
+        score += analysis.get("upside_potential", 0) * weights["upside_potential"]
+        score += analysis.get("position_scarcity", 0) * weights["position_scarcity"]
+
+        # Apply position-based adjustments based on roster slots
+        position = player.get("position", "")
+        if position == "Goalie":
+            # Penalty for goalies (only 2 starting slots vs 11 skater slots)
+            score *= 0.6  # 40% penalty for goalies
+        elif position == "Defense":
+            # Boost for defensemen (scarce position, only 4 starters needed)
+            score *= 1.15  # 15% boost for defensemen
+        elif position in ["Center", "Left Wing", "Right Wing"]:
+            # No boost for forwards (abundant position, 6 starters needed)
+            score *= 1.0  # No boost for forwards
+
+        # Add historical performance bonus for proven players
+        historical_bonus = self._calculate_historical_bonus(player)
+        score += historical_bonus
+
+        # Apply sample size penalty for small sample sizes
+        games_played = player.get("stats", {}).get("games_played", 0)
+        if games_played < 5:
+            # Penalty increases as sample size decreases
+            sample_penalty = max(0.5, 1.0 - (5 - games_played) * 0.1)
+            score *= sample_penalty
+
+        return max(0.0, score)
+
+    def _calculate_historical_bonus(self, player: Dict[str, Any]) -> float:
+        """Calculate historical performance bonus for proven players"""
+        try:
+            player_name = player.get("name", "")
+            # Import the historical bonus calculation from dashboard
+            from dashboard import get_historical_bonus
+
+            return get_historical_bonus(player_name)
+        except Exception as e:
+            logger.error(f"Error calculating historical bonus: {e}")
+            return 0.0
 
     def _calculate_swap_score(
         self, current_player: Dict[str, Any], target_player: Dict[str, Any]

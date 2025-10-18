@@ -6,7 +6,6 @@ Web interface for viewing analysis results and recommendations
 import dash
 from dash import dcc, html, Input, Output, callback
 import plotly.express as px
-import plotly.graph_objects as go
 import pandas as pd
 import json
 import os
@@ -24,62 +23,116 @@ app.title = "Fantasy Hockey Analysis Dashboard"
 app.layout = html.Div(
     [
         html.Div(
-            [
-                html.H1(
-                    "🏒 Fantasy Hockey Analysis Dashboard",
+            className="main-container",
+            style={
+                "background": "rgba(255, 255, 255, 0.95)",
+                "backdropFilter": "blur(10px)",
+                "borderRadius": "20px",
+                "margin": "20px",
+                "padding": "30px",
+                "boxShadow": "0 20px 40px rgba(0, 0, 0, 0.1)",
+                "minHeight": "calc(100vh - 40px)",
+            },
+            children=[
+                # Header
+                html.Div(
+                    className="header",
                     style={
                         "textAlign": "center",
-                        "color": "#2E86AB",
                         "marginBottom": "30px",
+                        "paddingBottom": "20px",
+                        "borderBottom": "2px solid #e3f2fd",
                     },
+                    children=[
+                        html.H1(
+                            "🏒 Fantasy Hockey Dashboard",
+                            style={
+                                "color": "#2c3e50",
+                                "fontSize": "2.5rem",
+                                "fontWeight": "700",
+                                "margin": 0,
+                                "background": "linear-gradient(135deg, #667eea, #764ba2)",
+                                "WebkitBackgroundClip": "text",
+                                "WebkitTextFillColor": "transparent",
+                                "backgroundClip": "text",
+                            },
+                        ),
+                        html.P(
+                            "AI-Powered Player Analysis & Recommendations",
+                            style={
+                                "color": "#7f8c8d",
+                                "fontSize": "1.1rem",
+                                "margin": "10px 0 0 0",
+                                "fontWeight": "400",
+                            },
+                        ),
+                    ],
                 ),
                 # Status indicator
                 html.Div(
                     id="status-indicator",
-                    style={"textAlign": "center", "marginBottom": "20px"},
+                    className="status-indicator",
                 ),
                 # Refresh button
                 html.Div(
-                    [
+                    style={"textAlign": "center", "marginBottom": "30px"},
+                    children=[
                         html.Button(
                             "🔄 Refresh Data",
                             id="refresh-button",
                             n_clicks=0,
                             style={
-                                "backgroundColor": "#2E86AB",
+                                "background": "linear-gradient(135deg, #667eea, #764ba2)",
                                 "color": "white",
                                 "border": "none",
-                                "padding": "10px 20px",
-                                "borderRadius": "5px",
+                                "padding": "12px 24px",
+                                "borderRadius": "25px",
+                                "fontWeight": "500",
                                 "cursor": "pointer",
+                                "boxShadow": "0 4px 15px rgba(102, 126, 234, 0.3)",
                             },
                         )
                     ],
-                    style={"textAlign": "center", "marginBottom": "30px"},
                 ),
-            ]
-        ),
-        # Main content tabs
-        dcc.Tabs(
-            id="main-tabs",
-            value="recommendations",
-            children=[
-                dcc.Tab(label="📊 Recommendations", value="recommendations"),
-                dcc.Tab(label="👥 My Team", value="my-team"),
-                dcc.Tab(label="🔄 Swap Analysis", value="swap-analysis"),
-                dcc.Tab(label="📈 Analytics", value="analytics"),
+                # Tabs
+                html.Div(
+                    className="tabs-container",
+                    children=[
+                        dcc.Tabs(
+                            id="main-tabs",
+                            value="recommendations",
+                            children=[
+                                dcc.Tab(
+                                    label="📊 Recommendations", value="recommendations"
+                                ),
+                                dcc.Tab(label="👥 My Team", value="my-team"),
+                                dcc.Tab(
+                                    label="🔄 Swap Analysis", value="swap-analysis"
+                                ),
+                            ],
+                        ),
+                    ],
+                ),
+                # Content
+                html.Div(id="tab-content"),
+                # Hidden data store
+                html.Div(id="data-store", style={"display": "none"}),
+                # Auto-refresh
+                dcc.Interval(
+                    id="interval-component",
+                    interval=5 * 60 * 1000,  # 5 minutes
+                    n_intervals=0,
+                ),
             ],
         ),
-        html.Div(id="tab-content", style={"marginTop": "20px"}),
-        # Hidden div to store data
-        html.Div(id="data-store", style={"display": "none"}),
-        # Auto-refresh interval
-        dcc.Interval(
-            id="interval-component",
-            interval=5 * 60 * 1000,  # Update every 5 minutes
-            n_intervals=0,
-        ),
-    ]
+    ],
+    style={
+        "minHeight": "100vh",
+        "background": "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+        "fontFamily": "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+        "margin": 0,
+        "padding": 0,
+    },
 )
 
 
@@ -288,21 +341,15 @@ def render_tab_content(active_tab, data_json):
     elif active_tab == "swap-analysis":
         print("DEBUG: Rendering swap-analysis tab")
         return render_swap_analysis_tab(data)
-    elif active_tab == "analytics":
-        print("DEBUG: Rendering analytics tab")
-        return render_analytics_tab(data)
     else:
         print(f"DEBUG: Unknown tab: '{active_tab}'")
         return html.Div("Select a tab to view content")
 
 
 @app.callback(
-    [
-        Output("swap-analysis-Matt-Coronato", "children", allow_duplicate=True),
-        Output("swap-analysis-Matvei-Michkov", "children", allow_duplicate=True),
-    ],
+    Output("swap-analysis-container", "children", allow_duplicate=True),
     [Input("data-store", "children")],
-    prevent_initial_call="initial_duplicate",  # Allow callback to run on initial load with duplicates
+    prevent_initial_call="initial_duplicate",
 )
 def update_swap_analysis(data_json):
     """Update swap analysis with OpenAI insights"""
@@ -312,63 +359,127 @@ def update_swap_analysis(data_json):
         data = json.loads(data_json) if data_json else {}
         roster = data.get("team_roster", [])
 
-        # Find swap candidates and extract their targets
-        analyses = {}
+        if not roster:
+            return [
+                html.Div(
+                    "No roster data available",
+                    style={"color": "red", "padding": "10px"},
+                )
+            ]
 
+        # Get OpenAI recommendations to find swap candidates
+        from openai_team_analyzer import get_openai_recommendation
+
+        comparison_data = get_player_comparison_data()
+        top_free_agents = _load_top_free_agents()
+
+        openai_recommendations = get_openai_recommendation(
+            roster, comparison_data, top_free_agents
+        )
+
+        # Find swap candidates
+        swap_candidates = []
         for player in roster:
             player_name = player.get("name", "")
+            recommendation = openai_recommendations.get(player_name, {}).get(
+                "recommendation", ""
+            )
 
-            # Check both possible field names for recommendations
-            recommendation = ""
-            rationale = ""
-            if "openai_rec" in player:
-                recommendation = player["openai_rec"].get("recommendation", "")
-                rationale = player["openai_rec"].get("rationale", "")
-            else:
-                recommendation = player.get("recommendation", "")
-                rationale = player.get("rationale", "")
+            if "Consider Swap" in recommendation:
+                swap_candidates.append(player)
 
-            if "Consider Swap" in recommendation and "Moderate upgrade:" in rationale:
-                # Extract target player from rationale
-                import re
+        if not swap_candidates:
+            return [
+                html.Div(
+                    "No swap candidates found",
+                    style={"color": "orange", "padding": "10px"},
+                )
+            ]
 
+        # Generate analysis for each swap candidate
+        analysis_divs = []
+        for player in swap_candidates:
+            player_name = player.get("name", "Unknown")
+            recommendation = openai_recommendations.get(player_name, {})
+            rationale = recommendation.get("rationale", "")
+
+            # Extract target player from rationale
+            import re
+
+            swap_target = "Unknown Player"
+            if "Moderate upgrade:" in rationale:
                 match = re.search(
-                    r"Moderate upgrade: ([^(]+) \(\+(\d+\.?\d*) FP/G improvement\)",
+                    r"Moderate upgrade: ([^(]+) \(\+(\d+\.?\d*) value score, \+(\d+\.?\d*) FP/G\)",
                     rationale,
                 )
                 if match:
-                    target_player = match.group(1).strip()
-                    print(f"DEBUG: Found swap {player_name} → {target_player}")
+                    swap_target = match.group(1).strip()
 
-                    # Get detailed analysis for this swap
-                    print(
-                        f"DEBUG: Calling get_detailed_swap_analysis for {player_name} → {target_player}"
-                    )
-                    analysis = get_detailed_swap_analysis(player, target_player)
-                    print(f"DEBUG: Analysis result: {analysis[:100]}...")
+            print(f"DEBUG: Getting analysis for {player_name} → {swap_target}")
 
-                    analyses[player_name] = analysis
+            # Get detailed analysis
+            analysis_text = get_detailed_swap_analysis(player, swap_target)
 
-        # Return analyses for the specific hardcoded outputs (for now)
-        coronato_analysis = analyses.get("Matt Coronato", "No analysis available")
-        michkov_analysis = analyses.get("Matvei Michkov", "No analysis available")
+            # Create analysis div
+            analysis_div = html.Div(
+                [
+                    html.H5(
+                        f"🤖 Detailed Analysis: {player_name} → {swap_target}",
+                        style={
+                            "color": "#2E86AB",
+                            "marginTop": "20px",
+                            "fontWeight": "600",
+                        },
+                    ),
+                    html.Div(
+                        analysis_text,
+                        className="analysis-section",
+                        style={
+                            "whiteSpace": "pre-wrap",
+                            "fontSize": "14px",
+                            "lineHeight": "1.6",
+                        },
+                    ),
+                ]
+            )
+            analysis_divs.append(analysis_div)
 
-        print(
-            f"DEBUG: Returning analyses - Coronato: {len(coronato_analysis)}, Michkov: {len(michkov_analysis)}"
-        )
-        return coronato_analysis, michkov_analysis
+        return analysis_divs
 
     except Exception as e:
-        error_msg = f"Error generating analysis: {str(e)}"
-        print(f"DEBUG: Swap analysis error: {error_msg}")
-        return error_msg, error_msg
+        print(f"DEBUG: Error in swap analysis callback: {e}")
+        return [
+            html.Div(
+                f"Error generating analysis: {str(e)}",
+                style={"color": "red", "padding": "10px"},
+            )
+        ]
+
+
+# Global cache for swap analysis to avoid repeated API calls
+_swap_analysis_cache = {}
+
+
+def clear_swap_analysis_cache():
+    """Clear the swap analysis cache (call when new data is collected)"""
+    global _swap_analysis_cache
+    _swap_analysis_cache.clear()
+    print("DEBUG: Cleared swap analysis cache")
 
 
 def get_detailed_swap_analysis(
     current_player: Dict[str, Any], target_player: str
 ) -> str:
-    """Get detailed OpenAI analysis for a potential swap"""
+    """Get detailed OpenAI analysis for a potential swap with caching"""
     try:
+        # Create cache key
+        cache_key = f"{current_player.get('name', 'Unknown')}→{target_player}"
+
+        # Check if we already have this analysis
+        if cache_key in _swap_analysis_cache:
+            print(f"DEBUG: Using cached analysis for {cache_key}")
+            return _swap_analysis_cache[cache_key]
+
         print(
             f"DEBUG: Starting analysis for {current_player.get('name')} → {target_player}"
         )
@@ -377,10 +488,12 @@ def get_detailed_swap_analysis(
 
         api_key = os.getenv("OPENAI_API_KEY")
         if not api_key:
+            print("DEBUG: No OpenAI API key found")
             return "Analysis unavailable: No OpenAI API key found"
 
-        print(f"DEBUG: API key found, creating client")
+        print("DEBUG: API key found, creating client")
         client = OpenAI(api_key=api_key)
+        print("DEBUG: Client created successfully")
 
         # Build context about the league scoring
         scoring_context = """
@@ -429,6 +542,14 @@ I am considering dropping **{current_player.get("name", "Unknown")}** for **{tar
 
 {player_context}
 
+**IMPORTANT: Please search the internet for the latest information about these players including:**
+- Recent performance trends and hot/cold streaks
+- Injury reports and health status
+- Lineup changes and role adjustments
+- Expert projections and analysis
+- Recent news affecting their fantasy value
+- Team situation changes (trades, coaching changes, etc.)
+
 Please analyze these players under our custom scoring system considering:
 
 1. Current season performance and sample size
@@ -436,43 +557,59 @@ Please analyze these players under our custom scoring system considering:
 3. Team situations and role expectations
 4. Position scarcity and roster construction
 5. Risk vs reward factors
+6. **Latest internet research findings**
 
 Provide your analysis in this format:
 
 ### Player Comparison
 [Detailed comparison with exact FP/G calculations using our scoring system]
 
+### Latest Research & News
+[Summary of internet findings - recent performance, injuries, lineup changes, expert opinions]
+
 ### Context  
 [Team roles, historical performance, and strategic considerations]
 
 ### Verdict
-[Clear recommendation: DROP, KEEP, or CONSIDER with specific reasoning]
+[Clear recommendation: DROP, KEEP, or CONSIDER with specific reasoning based on both stats and latest news]
 
 ### Summary
-[Actionable recommendation with key factors]
+[Actionable recommendation with key factors including recent developments]
 
-Be specific about fantasy point calculations using our exact scoring system."""
+Be specific about fantasy point calculations using our exact scoring system and incorporate the latest internet research into your analysis."""
 
         print(f"DEBUG: Making API call with prompt length: {len(prompt)}")
+        print("DEBUG: About to call OpenAI API...")
+
         response = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
                 {
                     "role": "system",
-                    "content": "You are a fantasy hockey expert. Provide comprehensive analysis comparing players using the provided scoring system. Give specific fantasy point calculations and clear recommendations.",
+                    "content": "You are a fantasy hockey expert with access to the internet. You can search for the latest player news, injury reports, lineup changes, and expert analysis. Always incorporate current internet research into your analysis to provide the most up-to-date recommendations. Provide comprehensive analysis comparing players using the provided scoring system. Give specific fantasy point calculations and clear recommendations based on both statistical data and latest news.",
                 },
                 {"role": "user", "content": prompt},
             ],
-            max_tokens=1000,
+            max_tokens=1500,
         )
 
         print(
             f"DEBUG: API call successful, response length: {len(response.choices[0].message.content)}"
         )
-        return response.choices[0].message.content
+        print(f"DEBUG: Full response: {response.choices[0].message.content}")
+
+        # Cache the result
+        analysis_result = response.choices[0].message.content
+        _swap_analysis_cache[cache_key] = analysis_result
+        print(f"DEBUG: Cached analysis for {cache_key}")
+
+        return analysis_result
 
     except Exception as e:
-        return f"Analysis unavailable: {str(e)}"
+        error_msg = f"Analysis unavailable: {str(e)}"
+        # Cache the error too to avoid repeated failed calls
+        _swap_analysis_cache[cache_key] = error_msg
+        return error_msg
 
 
 def get_ranking_explanation(
@@ -1480,7 +1617,11 @@ def render_swap_analysis_tab(data: Dict[str, Any]) -> html.Div:
         player_name = player.get("name", "Unknown")
         position = player.get("position", "Unknown")
         team = player.get("team", "Unknown")
+
+        # Calculate FP/G from stats if not present
         current_fp = player.get("fantasy_points_per_game", 0)
+        if current_fp == 0:
+            current_fp = calculate_fantasy_points_per_game(player.get("stats", {}))
 
         # Extract swap target from recommendation
         recommendation = ""
@@ -1494,21 +1635,23 @@ def render_swap_analysis_tab(data: Dict[str, Any]) -> html.Div:
 
         swap_target = "Unknown Player"
         fp_improvement = 0
+        value_score_improvement = 0
 
-        # Parse the rationale to extract target player and FP improvement
+        # Parse the rationale to extract target player and improvements
         if "Consider Swap" in recommendation and "Moderate upgrade:" in rationale:
             import re
 
-            # Extract target player name from "Moderate upgrade: PlayerName (+X.X FP/G improvement)"
+            # Extract target player name from "Moderate upgrade: PlayerName (+X.X value score, +X.X FP/G)"
             match = re.search(
-                r"Moderate upgrade: ([^(]+) \(\+(\d+\.?\d*) FP/G improvement\)",
+                r"Moderate upgrade: ([^(]+) \(\+(\d+\.?\d*) value score, \+(\d+\.?\d*) FP/G\)",
                 rationale,
             )
             if match:
                 swap_target = match.group(1).strip()
-                fp_improvement = float(match.group(2))
+                value_score_improvement = float(match.group(2))
+                fp_improvement = float(match.group(3))
                 print(
-                    f"DEBUG: Extracted swap target '{swap_target}' with {fp_improvement} FP/G improvement"
+                    f"DEBUG: Extracted swap target '{swap_target}' with {value_score_improvement} value score and {fp_improvement} FP/G improvement"
                 )
             else:
                 print(f"DEBUG: Could not parse rationale: '{rationale}'")
@@ -1518,47 +1661,38 @@ def render_swap_analysis_tab(data: Dict[str, Any]) -> html.Div:
             [
                 html.H4(
                     f"🔄 {player_name} → {swap_target}",
-                    style={"color": "#2E86AB", "marginBottom": "15px"},
+                    style={
+                        "color": "#2E86AB",
+                        "marginBottom": "15px",
+                        "fontWeight": "600",
+                    },
                 ),
                 html.Div(
                     [
                         html.P(f"Position: {position} | Team: {team}"),
                         html.P(f"Current FP/G: {current_fp:.2f}"),
                         html.P(f"Potential Target: {swap_target}"),
-                        html.P(f"Potential Improvement: +{fp_improvement:.1f} FP/G"),
+                        html.P(
+                            f"Value Score Improvement: +{value_score_improvement:.1f}"
+                        ),
+                        html.P(f"FP/G Improvement: +{fp_improvement:.1f}"),
                     ],
                     style={"marginBottom": "15px"},
                 ),
                 html.Div(
                     [
-                        html.H5("🤖 AI Analysis:", style={"color": "#2E86AB"}),
-                        html.Div(
-                            id=f"swap-analysis-{player_name.replace(' ', '-')}",
-                            children=[
-                                html.P(
-                                    "Loading detailed analysis...",
-                                    style={"fontStyle": "italic", "color": "#666"},
-                                )
-                            ],
-                            style={
-                                "backgroundColor": "#F8F9FA",
-                                "padding": "15px",
-                                "borderRadius": "5px",
-                                "borderLeft": "4px solid #2E86AB",
-                                "margin": "10px 0",
-                            },
+                        html.H5(
+                            "🤖 AI Analysis:",
+                            style={"color": "#2E86AB", "fontWeight": "500"},
+                        ),
+                        html.P(
+                            "Analysis will appear below...",
+                            style={"fontStyle": "italic", "color": "#666"},
                         ),
                     ]
                 ),
             ],
-            style={
-                "backgroundColor": "white",
-                "padding": "20px",
-                "margin": "15px 0",
-                "borderRadius": "8px",
-                "boxShadow": "0 2px 4px rgba(0,0,0,0.1)",
-                "border": "2px solid #E3F2FD",
-            },
+            className="swap-card",
         )
         swap_cards.append(card)
 
@@ -1568,7 +1702,12 @@ def render_swap_analysis_tab(data: Dict[str, Any]) -> html.Div:
             html.P(
                 "AI-powered analysis of potential player swaps with internet access for latest news and insights."
             ),
+            html.Div(
+                f"💾 Cache Status: {len(_swap_analysis_cache)} analyses cached",
+                className="cache-status",
+            ),
             html.Div(swap_cards),
+            html.Div(id="swap-analysis-container"),  # Container for dynamic updates
         ]
     )
 
