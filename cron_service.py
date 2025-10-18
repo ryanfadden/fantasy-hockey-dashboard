@@ -2,6 +2,7 @@
 """
 Railway Cron Service for Fantasy Hockey Data Collection
 This service runs weekly to collect fresh data
+Runs every Monday at 6 AM MDT (12 PM UTC)
 """
 
 import os
@@ -59,6 +60,7 @@ def main():
     """Main cron job function"""
     logger.info("🏒 Fantasy Hockey Weekly Data Collection")
     logger.info(f"Timestamp: {datetime.now()}")
+    logger.info("🕐 Running every Monday at 6 AM MDT (12 PM UTC)")
     
     # Ensure necessary directories exist
     directories = ["data", "output", "reports", "logs"]

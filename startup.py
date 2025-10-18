@@ -77,32 +77,20 @@ def main():
             print(f"📁 Creating directory: {directory}")
             os.makedirs(directory, exist_ok=True)
 
-    # Check if running as cron job (Railway sets RAILWAY_CRON_SCHEDULE env var)
-    is_cron_job = os.getenv("RAILWAY_CRON_SCHEDULE") is not None
+    # Always run as web service - cron will be handled separately
+    print("🌐 Running as web service")
     
-    if is_cron_job:
-        print("🕐 Running as scheduled cron job - data collection only")
-        # Run data collection and exit
-        data_success = run_data_collection()
-        if data_success:
-            print("✅ Weekly data collection completed successfully!")
-            print("💡 Fresh data is now available for the dashboard")
-        else:
-            print("❌ Weekly data collection failed!")
-        sys.exit(0 if data_success else 1)
+    # Run data collection
+    data_success = run_data_collection()
+
+    if data_success:
+        print("✅ Data collection successful, starting dashboard...")
     else:
-        print("🌐 Running as web service")
-        # Run data collection
-        data_success = run_data_collection()
+        print("⚠️ Data collection failed, starting dashboard anyway...")
+        print("💡 You can manually trigger data collection later")
 
-        if data_success:
-            print("✅ Data collection successful, starting dashboard...")
-        else:
-            print("⚠️ Data collection failed, starting dashboard anyway...")
-            print("💡 You can manually trigger data collection later")
-
-        # Start dashboard
-        start_dashboard()
+    # Start dashboard
+    start_dashboard()
 
 
 if __name__ == "__main__":
