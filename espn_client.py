@@ -200,6 +200,10 @@ class ESPNFantasyClient:
             if games_played == 0:  # If no GP, try GS for goalies
                 games_played = int(total_stats.get("GS", 0))
 
+            # Calculate fantasy points using the same method as historical data
+            fantasy_points = self._calculate_fantasy_points_from_stats(total_stats)
+            fantasy_points_per_game = fantasy_points / games_played if games_played > 0 else 0.0
+
             return {
                 "games_played": games_played,
                 "goals": int(total_stats.get("G", 0)),
@@ -219,6 +223,9 @@ class ESPNFantasyClient:
                 "saves": int(total_stats.get("SV", 0)),
                 "shutouts": int(total_stats.get("SO", 0)),
                 "overtime_losses": int(total_stats.get("OTL", 0)),
+                # Fantasy points
+                "fantasy_points": fantasy_points,
+                "fantasy_points_per_game": fantasy_points_per_game,
             }
         except Exception as e:
             logger.warning(f"Error getting stats for {player.name}: {e}")
@@ -240,6 +247,8 @@ class ESPNFantasyClient:
                 "saves": 0,
                 "shutouts": 0,
                 "overtime_losses": 0,
+                "fantasy_points": 0,
+                "fantasy_points_per_game": 0.0,
             }
 
     def _get_recent_performance(self, player) -> Dict[str, Any]:

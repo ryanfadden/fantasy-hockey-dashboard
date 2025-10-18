@@ -62,22 +62,37 @@ def format_player_name(player_name: str) -> str:
 def calculate_fantasy_points_per_game(
     stats: Dict[str, Any], games_played: int
 ) -> float:
-    """Calculate fantasy points per game"""
+    """Calculate fantasy points per game using league scoring system"""
     if games_played <= 0:
         return 0.0
 
-    # Basic fantasy scoring (adjust based on your league)
-    points = (
-        stats.get("goals", 0) * 3
-        + stats.get("assists", 0) * 2
-        + stats.get("plus_minus", 0) * 1
-        + stats.get("powerplay_points", 0) * 1
-        + stats.get("shots_on_goal", 0) * 0.5
-        + stats.get("hits", 0) * 0.5
-        + stats.get("blocks", 0) * 0.5
+    # Import scoring categories from config
+    from config import SCORING_CATEGORIES
+
+    # Calculate total fantasy points using league scoring
+    total_points = 0
+    total_points += stats.get("goals", 0) * SCORING_CATEGORIES["goals"]
+    total_points += stats.get("assists", 0) * SCORING_CATEGORIES["assists"]
+    total_points += (
+        stats.get("powerplay_points", 0) * SCORING_CATEGORIES["powerplay_points"]
+    )
+    total_points += (
+        stats.get("shorthanded_points", 0) * SCORING_CATEGORIES["shorthanded_points"]
+    )
+    total_points += stats.get("shots_on_goal", 0) * SCORING_CATEGORIES["shots_on_goal"]
+    total_points += stats.get("hits", 0) * SCORING_CATEGORIES["hits"]
+    total_points += stats.get("blocks", 0) * SCORING_CATEGORIES["blocks"]
+
+    # Add goaltender stats if present
+    total_points += stats.get("wins", 0) * SCORING_CATEGORIES["wins"]
+    total_points += stats.get("goals_against", 0) * SCORING_CATEGORIES["goals_against"]
+    total_points += stats.get("saves", 0) * SCORING_CATEGORIES["saves"]
+    total_points += stats.get("shutouts", 0) * SCORING_CATEGORIES["shutouts"]
+    total_points += (
+        stats.get("overtime_losses", 0) * SCORING_CATEGORIES["overtime_losses"]
     )
 
-    return points / games_played
+    return total_points / games_played
 
 
 def get_position_abbreviation(position: str) -> str:
@@ -217,5 +232,3 @@ def print_system_status() -> None:
 
 if __name__ == "__main__":
     print_system_status()
-
-

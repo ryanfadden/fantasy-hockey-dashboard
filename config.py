@@ -23,7 +23,7 @@ ANALYSIS_SETTINGS = {
     "min_games_played": 5,  # Minimum games for analysis
     "recent_games_weight": 0.7,  # Weight for recent performance
     "season_weight": 0.3,  # Weight for season-long performance
-    "max_recommendations": 15,  # Max players to recommend
+    "max_recommendations": 20,  # Max players to recommend
     "min_fantasy_points": 2.0,  # Minimum fantasy points per game
 }
 
