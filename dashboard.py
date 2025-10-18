@@ -302,7 +302,7 @@ def render_tab_content(active_tab, data_json):
         Output("swap-analysis-Matvei-Michkov", "children", allow_duplicate=True),
     ],
     [Input("data-store", "children")],
-    prevent_initial_call=False,  # Allow callback to run on initial load
+    prevent_initial_call='initial_duplicate',  # Allow callback to run on initial load with duplicates
 )
 def update_swap_analysis(data_json):
     """Update swap analysis with OpenAI insights"""
