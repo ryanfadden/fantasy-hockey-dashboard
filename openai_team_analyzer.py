@@ -27,6 +27,13 @@ class OpenAITeamAnalyzer:
                 player_name = player.get("name", "Unknown")
                 position = player.get("position", "Unknown")
 
+                # Calculate FP/G from stats if not present
+                player_fp_per_game = player.get("fantasy_points_per_game", 0)
+                if player_fp_per_game == 0:
+                    player_fp_per_game = self._calculate_fantasy_points_per_game(
+                        player.get("stats", {})
+                    )
+
                 # Find potential swap targets from recommendations
                 swap_targets = self._find_swap_targets(player, top_free_agents)
 
@@ -36,8 +43,11 @@ class OpenAITeamAnalyzer:
                     best_target = swap_targets[0]
 
                     # Calculate actual FP/G improvement (without bonuses)
-                    actual_fp_improvement = best_target.get("fantasy_points_per_game", 0) - player_fp_per_game
-                    
+                    actual_fp_improvement = (
+                        best_target.get("fantasy_points_per_game", 0)
+                        - player_fp_per_game
+                    )
+
                     # Determine recommendation
                     if swap_score >= 15:
                         recommendation = "Must Swap"
