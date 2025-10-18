@@ -302,23 +302,23 @@ def render_tab_content(active_tab, data_json):
         Output("swap-analysis-Matvei-Michkov", "children", allow_duplicate=True),
     ],
     [Input("data-store", "children")],
-    prevent_initial_call=True,  # Prevent callback from running on initial load
+    prevent_initial_call=False,  # Allow callback to run on initial load
 )
 def update_swap_analysis(data_json):
     """Update swap analysis with OpenAI insights"""
     print("DEBUG: Swap analysis callback triggered")
-    
+
     try:
         data = json.loads(data_json) if data_json else {}
         roster = data.get("team_roster", [])
-        
+
         # Find swap candidates and extract their targets
         coronato_analysis = "No analysis available"
         michkov_analysis = "No analysis available"
-        
+
         for player in roster:
             player_name = player.get("name", "")
-            
+
             # Check both possible field names for recommendations
             recommendation = ""
             rationale = ""
@@ -332,21 +332,25 @@ def update_swap_analysis(data_json):
             if "Consider Swap" in recommendation and "Moderate upgrade:" in rationale:
                 # Extract target player from rationale
                 import re
-                match = re.search(r"Moderate upgrade: ([^(]+) \(\+(\d+\.?\d*) FP/G improvement\)", rationale)
+
+                match = re.search(
+                    r"Moderate upgrade: ([^(]+) \(\+(\d+\.?\d*) FP/G improvement\)",
+                    rationale,
+                )
                 if match:
                     target_player = match.group(1).strip()
                     print(f"DEBUG: Found swap {player_name} → {target_player}")
-                    
+
                     # Get detailed analysis for this swap
                     analysis = get_detailed_swap_analysis(player, target_player)
-                    
+
                     if player_name == "Matt Coronato":
                         coronato_analysis = analysis
                     elif player_name == "Matvei Michkov":
                         michkov_analysis = analysis
-        
+
         return coronato_analysis, michkov_analysis
-        
+
     except Exception as e:
         error_msg = f"Error generating analysis: {str(e)}"
         print(f"DEBUG: Swap analysis error: {error_msg}")
@@ -1495,20 +1499,25 @@ def render_swap_analysis_tab(data: Dict[str, Any]) -> html.Div:
         else:
             recommendation = player.get("recommendation", "")
             rationale = player.get("rationale", "")
-            
+
         swap_target = "Unknown Player"
         fp_improvement = 0
 
         # Parse the rationale to extract target player and FP improvement
         if "Consider Swap" in recommendation and "Moderate upgrade:" in rationale:
             import re
-            
+
             # Extract target player name from "Moderate upgrade: PlayerName (+X.X FP/G improvement)"
-            match = re.search(r"Moderate upgrade: ([^(]+) \(\+(\d+\.?\d*) FP/G improvement\)", rationale)
+            match = re.search(
+                r"Moderate upgrade: ([^(]+) \(\+(\d+\.?\d*) FP/G improvement\)",
+                rationale,
+            )
             if match:
                 swap_target = match.group(1).strip()
                 fp_improvement = float(match.group(2))
-                print(f"DEBUG: Extracted swap target '{swap_target}' with {fp_improvement} FP/G improvement")
+                print(
+                    f"DEBUG: Extracted swap target '{swap_target}' with {fp_improvement} FP/G improvement"
+                )
             else:
                 print(f"DEBUG: Could not parse rationale: '{rationale}'")
 
