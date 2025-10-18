@@ -290,48 +290,52 @@ def render_tab_content(active_tab, data_json):
 
 
 @app.callback(
-    [Output("swap-analysis-Matt-Coronato", "children"),
-     Output("swap-analysis-Matvei-Michkov", "children")],
-    [Input("data-store", "children")]
+    [
+        Output("swap-analysis-Matt-Coronato", "children"),
+        Output("swap-analysis-Matvei-Michkov", "children"),
+    ],
+    [Input("data-store", "children")],
 )
 def update_swap_analysis(data_json):
     """Update swap analysis with OpenAI insights"""
     try:
         data = json.loads(data_json) if data_json else {}
         roster = data.get("team_roster", [])
-        
+
         # Find swap candidates
         coronato_analysis = "No analysis available"
         michkov_analysis = "No analysis available"
-        
+
         for player in roster:
             player_name = player.get("name", "")
             recommendation = player.get("recommendation", "")
-            
+
             if "Consider Swap" in recommendation and "Patrick Kane" in recommendation:
                 # Get detailed analysis for this swap
                 analysis = get_detailed_swap_analysis(player, "Patrick Kane")
-                
+
                 if player_name == "Matt Coronato":
                     coronato_analysis = analysis
                 elif player_name == "Matvei Michkov":
                     michkov_analysis = analysis
-        
+
         return coronato_analysis, michkov_analysis
-        
+
     except Exception as e:
         error_msg = f"Error generating analysis: {str(e)}"
         return error_msg, error_msg
 
 
-def get_detailed_swap_analysis(current_player: Dict[str, Any], target_player: str) -> str:
+def get_detailed_swap_analysis(
+    current_player: Dict[str, Any], target_player: str
+) -> str:
     """Get detailed OpenAI analysis for a potential swap"""
     try:
         from openai import OpenAI
         import os
-        
+
         client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-        
+
         # Build context about the league scoring
         scoring_context = """
         LEAGUE SCORING SYSTEM:
@@ -348,51 +352,71 @@ def get_detailed_swap_analysis(current_player: Dict[str, Any], target_player: st
         - Shutouts: 3 points
         - Overtime Losses: 1 point
         """
-        
+
         # Build player context
         player_context = f"""
-        CURRENT PLAYER: {current_player.get('name', 'Unknown')}
-        - Position: {current_player.get('position', 'Unknown')}
-        - Team: {current_player.get('team', 'Unknown')}
-        - Current FP/G: {current_player.get('fantasy_points_per_game', 0):.2f}
-        - Games Played: {current_player.get('stats', {}).get('games_played', 0)}
-        - Goals: {current_player.get('stats', {}).get('goals', 0)}
-        - Assists: {current_player.get('stats', {}).get('assists', 0)}
-        - Shots: {current_player.get('stats', {}).get('shots_on_goal', 0)}
-        - Hits: {current_player.get('stats', {}).get('hits', 0)}
-        - Blocks: {current_player.get('stats', {}).get('blocks', 0)}
+        CURRENT PLAYER: {current_player.get("name", "Unknown")}
+        - Position: {current_player.get("position", "Unknown")}
+        - Team: {current_player.get("team", "Unknown")}
+        - Current FP/G: {current_player.get("fantasy_points_per_game", 0):.2f}
+        - Games Played: {current_player.get("stats", {}).get("games_played", 0)}
+        - Goals: {current_player.get("stats", {}).get("goals", 0)}
+        - Assists: {current_player.get("stats", {}).get("assists", 0)}
+        - Shots: {current_player.get("stats", {}).get("shots_on_goal", 0)}
+        - Hits: {current_player.get("stats", {}).get("hits", 0)}
+        - Blocks: {current_player.get("stats", {}).get("blocks", 0)}
         
         POTENTIAL TARGET: {target_player}
         """
-        
+
         prompt = f"""
         {scoring_context}
         
         {player_context}
         
-        As a fantasy hockey expert, analyze this potential swap considering:
-        1. Current performance trends and sample size
-        2. Team situations and line combinations
-        3. Recent news, injuries, or roster changes
-        4. Schedule strength and upcoming matchups
-        5. Long-term vs short-term value
-        6. Position scarcity and roster construction
+        As a fantasy hockey expert, analyze this potential swap using the same comprehensive approach as ChatGPT's agent mode. I need an in-depth comparison that considers:
         
-        Provide a detailed analysis with specific recommendations. Use current information from the internet if available.
+        1. CURRENT PERFORMANCE ANALYSIS:
+           - Convert both players' stats to our custom scoring system
+           - Calculate exact fantasy points per game (FP/G) for each player
+           - Analyze sample size and consistency of production
+        
+        2. CONTEXTUAL FACTORS:
+           - Team situations, line combinations, and power-play roles
+           - Recent news, injuries, or roster changes affecting ice time
+           - Schedule strength and upcoming matchups
+           - Historical track record and career trends
+        
+        3. STRATEGIC RECOMMENDATIONS:
+           - Long-term vs short-term value assessment
+           - Position scarcity and roster construction impact
+           - Risk vs reward analysis
+           - Specific drop/add recommendation with clear reasoning
+        
+        Provide a detailed analysis similar to this format:
+        - "Player A vs Player B" section with current stats converted to our scoring
+        - "Context" sections explaining team roles and recent developments
+        - "Verdict" with specific recommendation and reasoning
+        - "Summary" with clear action items
+        
+        Use current information from the internet to support your analysis. Be specific about fantasy point calculations and provide concrete recommendations.
         """
-        
+
         response = client.chat.completions.create(
             model="gpt-4o",
             messages=[
-                {"role": "system", "content": "You are a fantasy hockey expert with access to current NHL news and analysis."},
-                {"role": "user", "content": prompt}
+                {
+                    "role": "system",
+                    "content": "You are a fantasy hockey expert with access to current NHL news and analysis. You provide comprehensive, data-driven analysis similar to ChatGPT's agent mode. Always convert stats to the provided scoring system and give specific fantasy point calculations. Use current internet information to support your recommendations.",
+                },
+                {"role": "user", "content": prompt},
             ],
             tools=[{"type": "web_search"}],  # Enable web search
-            max_tokens=500
+            max_tokens=1000,
         )
-        
+
         return response.choices[0].message.content
-        
+
     except Exception as e:
         return f"Analysis unavailable: {str(e)}"
 
@@ -1331,7 +1355,7 @@ def render_my_team_tab(data: Dict[str, Any]) -> html.Div:
 def render_swap_analysis_tab(data: Dict[str, Any]) -> html.Div:
     """Render swap analysis tab with detailed OpenAI analysis"""
     roster = data.get("team_roster", [])
-    
+
     if not roster:
         return html.Div(
             [
@@ -1339,23 +1363,25 @@ def render_swap_analysis_tab(data: Dict[str, Any]) -> html.Div:
                 html.P("Team data will be displayed here when available."),
             ]
         )
-    
+
     # Find players with "Consider Swap" recommendations
     swap_candidates = []
     for player in roster:
         recommendation = player.get("recommendation", "")
         if "Consider Swap" in recommendation:
             swap_candidates.append(player)
-    
+
     if not swap_candidates:
         return html.Div(
             [
                 html.H3("🔄 Swap Analysis"),
-                html.P("No swap candidates found. All players are recommended to keep."),
+                html.P(
+                    "No swap candidates found. All players are recommended to keep."
+                ),
                 html.P("Check back after the next analysis run for potential swaps."),
             ]
         )
-    
+
     # Create swap analysis cards
     swap_cards = []
     for player in swap_candidates:
@@ -1363,49 +1389,57 @@ def render_swap_analysis_tab(data: Dict[str, Any]) -> html.Div:
         position = player.get("position", "Unknown")
         team = player.get("team", "Unknown")
         current_fp = player.get("fantasy_points_per_game", 0)
-        
+
         # Extract swap target from recommendation
         recommendation = player.get("recommendation", "")
         swap_target = "Unknown Player"
         fp_improvement = 0
-        
+
         if "Patrick Kane" in recommendation:
             swap_target = "Patrick Kane"
             # Extract FP improvement from recommendation text
             import re
-            match = re.search(r'\+(\d+\.?\d*) FP/G improvement', recommendation)
+
+            match = re.search(r"\+(\d+\.?\d*) FP/G improvement", recommendation)
             if match:
                 fp_improvement = float(match.group(1))
-        
+
         # Create swap analysis card
         card = html.Div(
             [
-                html.H4(f"🔄 {player_name} → {swap_target}", 
-                       style={"color": "#2E86AB", "marginBottom": "15px"}),
-                
-                html.Div([
-                    html.P(f"Position: {position} | Team: {team}"),
-                    html.P(f"Current FP/G: {current_fp:.2f}"),
-                    html.P(f"Potential Improvement: +{fp_improvement:.1f} FP/G"),
-                ], style={"marginBottom": "15px"}),
-                
-                html.Div([
-                    html.H5("🤖 AI Analysis:", style={"color": "#2E86AB"}),
-                    html.Div(
-                        id=f"swap-analysis-{player_name.replace(' ', '-')}",
-                        children=[
-                            html.P("Loading detailed analysis...", 
-                                  style={"fontStyle": "italic", "color": "#666"})
-                        ],
-                        style={
-                            "backgroundColor": "#F8F9FA",
-                            "padding": "15px",
-                            "borderRadius": "5px",
-                            "borderLeft": "4px solid #2E86AB",
-                            "margin": "10px 0"
-                        }
-                    )
-                ])
+                html.H4(
+                    f"🔄 {player_name} → {swap_target}",
+                    style={"color": "#2E86AB", "marginBottom": "15px"},
+                ),
+                html.Div(
+                    [
+                        html.P(f"Position: {position} | Team: {team}"),
+                        html.P(f"Current FP/G: {current_fp:.2f}"),
+                        html.P(f"Potential Improvement: +{fp_improvement:.1f} FP/G"),
+                    ],
+                    style={"marginBottom": "15px"},
+                ),
+                html.Div(
+                    [
+                        html.H5("🤖 AI Analysis:", style={"color": "#2E86AB"}),
+                        html.Div(
+                            id=f"swap-analysis-{player_name.replace(' ', '-')}",
+                            children=[
+                                html.P(
+                                    "Loading detailed analysis...",
+                                    style={"fontStyle": "italic", "color": "#666"},
+                                )
+                            ],
+                            style={
+                                "backgroundColor": "#F8F9FA",
+                                "padding": "15px",
+                                "borderRadius": "5px",
+                                "borderLeft": "4px solid #2E86AB",
+                                "margin": "10px 0",
+                            },
+                        ),
+                    ]
+                ),
             ],
             style={
                 "backgroundColor": "white",
@@ -1413,16 +1447,18 @@ def render_swap_analysis_tab(data: Dict[str, Any]) -> html.Div:
                 "margin": "15px 0",
                 "borderRadius": "8px",
                 "boxShadow": "0 2px 4px rgba(0,0,0,0.1)",
-                "border": "2px solid #E3F2FD"
-            }
+                "border": "2px solid #E3F2FD",
+            },
         )
         swap_cards.append(card)
-    
+
     return html.Div(
         [
             html.H3("🔄 Detailed Swap Analysis"),
-            html.P("AI-powered analysis of potential player swaps with internet access for latest news and insights."),
-            html.Div(swap_cards)
+            html.P(
+                "AI-powered analysis of potential player swaps with internet access for latest news and insights."
+            ),
+            html.Div(swap_cards),
         ]
     )
 
