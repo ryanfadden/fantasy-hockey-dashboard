@@ -114,15 +114,36 @@ class FantasyHockeyAnalyzer:
         return analysis
 
     def _calculate_consistency(self, stats: Dict[str, Any]) -> float:
-        """Calculate player consistency rating (0-10)"""
-        # This is a simplified version - in practice, you'd use historical game-by-game data
+        """Calculate player consistency rating (0-10) based on production stability"""
         games_played = stats.get("games_played", 0)
-        if games_played < 5:
-            return 5.0  # Neutral rating for small sample size
-
-        # Higher consistency for players with more games and steady production
-        consistency = min(10.0, games_played / 2.0)
-        return consistency
+        if games_played < 3:
+            return 5.0  # Neutral rating for very small sample size
+        
+        # Calculate fantasy points per game
+        total_fantasy_points = stats.get("fantasy_points", 0)
+        fp_per_game = total_fantasy_points / games_played if games_played > 0 else 0
+        
+        # Base consistency on games played and production level
+        # More games = higher consistency (proven track record)
+        # Higher production = higher consistency (reliable contributor)
+        
+        # Games played factor (0-5 points)
+        games_factor = min(5.0, games_played / 4.0)  # Max at 20 games
+        
+        # Production factor (0-5 points)
+        if fp_per_game >= 4.0:
+            production_factor = 5.0  # Elite production
+        elif fp_per_game >= 3.0:
+            production_factor = 4.0  # Very good production
+        elif fp_per_game >= 2.0:
+            production_factor = 3.0  # Good production
+        elif fp_per_game >= 1.0:
+            production_factor = 2.0  # Decent production
+        else:
+            production_factor = 1.0  # Low production
+        
+        consistency = games_factor + production_factor
+        return min(10.0, consistency)
 
     def _calculate_upside(self, stats: Dict[str, Any]) -> float:
         """Calculate upside potential (0-10)"""
@@ -254,13 +275,12 @@ class FantasyHockeyAnalyzer:
         """Calculate overall value score for a player"""
         analysis = player["analysis"]
 
-        # Weighted scoring (removed ownership and fixed injury risk)
+        # Weighted scoring (removed injury risk)
         weights = {
-            "fantasy_points_per_game": 0.4,  # Increased weight
+            "fantasy_points_per_game": 0.5,  # Increased weight
             "consistency_rating": 0.25,  # Increased weight
-            "upside_potential": 0.25,  # Increased weight
-            "position_scarcity": 0.1,  # Reduced weight
-            "injury_risk": 0.1,  # Positive weight (healthy = good)
+            "upside_potential": 0.2,  # Increased weight
+            "position_scarcity": 0.05,  # Reduced weight
         }
 
         score = 0.0
@@ -268,7 +288,6 @@ class FantasyHockeyAnalyzer:
         score += analysis["consistency_rating"] * weights["consistency_rating"]
         score += analysis["upside_potential"] * weights["upside_potential"]
         score += analysis["position_scarcity"] * weights["position_scarcity"]
-        score += analysis["injury_risk"] * weights["injury_risk"]
 
         # Apply position-based adjustments based on roster slots
         position = player.get("position", "")
