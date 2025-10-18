@@ -3,21 +3,24 @@
 Simple test server for Railway deployment
 """
 import os
-from flask import Flask, render_template_string
+from flask import Flask
 
 app = Flask(__name__)
 
 @app.route('/')
 def home():
-    return '''
+    environment = os.environ.get('RAILWAY_ENVIRONMENT', 'production')
+    port = os.environ.get('PORT', '8080')
+    
+    return f'''
     <!DOCTYPE html>
     <html>
     <head>
         <title>Fantasy Hockey Dashboard - Test</title>
         <style>
-            body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
-            .container { background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-            .status { background: #e8f5e8; border: 1px solid #4caf50; padding: 15px; border-radius: 5px; margin: 20px 0; }
+            body {{ font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }}
+            .container {{ background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }}
+            .status {{ background: #e8f5e8; border: 1px solid #4caf50; padding: 15px; border-radius: 5px; margin: 20px 0; }}
         </style>
     </head>
     <body>
@@ -26,14 +29,14 @@ def home():
             <div class="status">
                 <h3>✅ Railway Deployment Successful!</h3>
                 <p>Your Fantasy Hockey Dashboard is now running on Railway.</p>
-                <p>Environment: {}</p>
-                <p>Port: {}</p>
+                <p>Environment: {environment}</p>
+                <p>Port: {port}</p>
             </div>
             <p>Next step: Set up your environment variables in Railway dashboard.</p>
         </div>
     </body>
     </html>
-    '''.format(os.environ.get('RAILWAY_ENVIRONMENT', 'production'), os.environ.get('PORT', '8080'))
+    '''
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 8080))
