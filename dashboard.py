@@ -273,7 +273,7 @@ def update_data(n_clicks, n_intervals):
 def render_tab_content(active_tab, data_json):
     """Render content based on selected tab"""
     print(f"DEBUG: Tab content callback - active_tab: '{active_tab}'")
-    
+
     try:
         data = json.loads(data_json) if data_json else {}
     except:
@@ -308,18 +308,18 @@ def render_tab_content(active_tab, data_json):
 # def update_swap_analysis(data_json):
 #     """Update swap analysis with OpenAI insights"""
 #     print("DEBUG: Swap analysis callback triggered")
-#     
+#
 #     try:
 #         data = json.loads(data_json) if data_json else {}
 #         roster = data.get("team_roster", [])
-#         
+#
 #         # Find swap candidates
 #         coronato_analysis = "No analysis available"
 #         michkov_analysis = "No analysis available"
-#         
+#
 #         for player in roster:
 #             player_name = player.get("name", "")
-#             
+#
 #             # Check both possible field names for recommendations
 #             recommendation = ""
 #             if "openai_rec" in player:
@@ -330,14 +330,14 @@ def render_tab_content(active_tab, data_json):
 #             if "Consider Swap" in recommendation and "Patrick Kane" in recommendation:
 #                 # Get detailed analysis for this swap
 #                 analysis = get_detailed_swap_analysis(player, "Patrick Kane")
-#                 
+#
 #                 if player_name == "Matt Coronato":
 #                     coronato_analysis = analysis
 #                 elif player_name == "Matvei Michkov":
 #                     michkov_analysis = analysis
-#         
+#
 #         return coronato_analysis, michkov_analysis
-#         
+#
 #     except Exception as e:
 #         error_msg = f"Error generating analysis: {str(e)}"
 #         print(f"DEBUG: Swap analysis error: {error_msg}")
@@ -1422,7 +1422,7 @@ def render_swap_analysis_tab(data: Dict[str, Any]) -> html.Div:
             from utils import calculate_fantasy_points_per_game
 
             # Get comparison data
-            comparison_data = get_comparison_data()
+            comparison_data = get_player_comparison_data()
 
             # Load top free agents for comparison
             top_free_agents = _load_top_free_agents()
