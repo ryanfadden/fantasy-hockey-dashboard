@@ -29,6 +29,7 @@ wheels/
 venv/
 env/
 ENV/
+fantasy_hockey_env/
 
 # IDE
 .vscode/
