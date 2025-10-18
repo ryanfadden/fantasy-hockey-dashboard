@@ -313,9 +313,8 @@ def update_swap_analysis(data_json):
         roster = data.get("team_roster", [])
 
         # Find swap candidates and extract their targets
-        coronato_analysis = "No analysis available"
-        michkov_analysis = "No analysis available"
-
+        analyses = {}
+        
         for player in roster:
             player_name = player.get("name", "")
 
@@ -347,12 +346,14 @@ def update_swap_analysis(data_json):
                     )
                     analysis = get_detailed_swap_analysis(player, target_player)
                     print(f"DEBUG: Analysis result: {analysis[:100]}...")
+                    
+                    analyses[player_name] = analysis
 
-                    if player_name == "Matt Coronato":
-                        coronato_analysis = analysis
-                    elif player_name == "Matvei Michkov":
-                        michkov_analysis = analysis
-
+        # Return analyses for the specific hardcoded outputs (for now)
+        coronato_analysis = analyses.get("Matt Coronato", "No analysis available")
+        michkov_analysis = analyses.get("Matvei Michkov", "No analysis available")
+        
+        print(f"DEBUG: Returning analyses - Coronato: {len(coronato_analysis)}, Michkov: {len(michkov_analysis)}")
         return coronato_analysis, michkov_analysis
 
     except Exception as e:
@@ -366,14 +367,16 @@ def get_detailed_swap_analysis(
 ) -> str:
     """Get detailed OpenAI analysis for a potential swap"""
     try:
-        print(f"DEBUG: Starting analysis for {current_player.get('name')} → {target_player}")
+        print(
+            f"DEBUG: Starting analysis for {current_player.get('name')} → {target_player}"
+        )
         from openai import OpenAI
         import os
 
         api_key = os.getenv("OPENAI_API_KEY")
         if not api_key:
             return "Analysis unavailable: No OpenAI API key found"
-        
+
         print(f"DEBUG: API key found, creating client")
         client = OpenAI(api_key=api_key)
 
@@ -461,7 +464,9 @@ Be specific about fantasy point calculations using our exact scoring system."""
             max_tokens=1000,
         )
 
-        print(f"DEBUG: API call successful, response length: {len(response.choices[0].message.content)}")
+        print(
+            f"DEBUG: API call successful, response length: {len(response.choices[0].message.content)}"
+        )
         return response.choices[0].message.content
 
     except Exception as e:
