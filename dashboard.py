@@ -272,64 +272,76 @@ def update_data(n_clicks, n_intervals):
 )
 def render_tab_content(active_tab, data_json):
     """Render content based on selected tab"""
+    print(f"DEBUG: Tab content callback - active_tab: '{active_tab}'")
+    
     try:
         data = json.loads(data_json) if data_json else {}
     except:
         data = {}
 
     if active_tab == "recommendations":
+        print("DEBUG: Rendering recommendations tab")
         return render_recommendations_tab(data)
     elif active_tab == "my-team":
+        print("DEBUG: Rendering my-team tab")
         return render_my_team_tab(data)
     elif active_tab == "swap-analysis":
+        print("DEBUG: Rendering swap-analysis tab")
         return render_swap_analysis_tab(data)
     elif active_tab == "analytics":
+        print("DEBUG: Rendering analytics tab")
         return render_analytics_tab(data)
     else:
+        print(f"DEBUG: Unknown tab: '{active_tab}'")
         return html.Div("Select a tab to view content")
 
 
-@app.callback(
-    [
-        Output("swap-analysis-Matt-Coronato", "children"),
-        Output("swap-analysis-Matvei-Michkov", "children"),
-    ],
-    [Input("data-store", "children")],
-)
-def update_swap_analysis(data_json):
-    """Update swap analysis with OpenAI insights"""
-    try:
-        data = json.loads(data_json) if data_json else {}
-        roster = data.get("team_roster", [])
+# Temporarily disabled to fix tab switching issue
+# @app.callback(
+#     [
+#         Output("swap-analysis-Matt-Coronato", "children", allow_duplicate=True),
+#         Output("swap-analysis-Matvei-Michkov", "children", allow_duplicate=True),
+#     ],
+#     [Input("data-store", "children")],
+#     prevent_initial_call=True,  # Prevent callback from running on initial load
+# )
+# def update_swap_analysis(data_json):
+#     """Update swap analysis with OpenAI insights"""
+#     print("DEBUG: Swap analysis callback triggered")
+#     
+#     try:
+#         data = json.loads(data_json) if data_json else {}
+#         roster = data.get("team_roster", [])
+#         
+#         # Find swap candidates
+#         coronato_analysis = "No analysis available"
+#         michkov_analysis = "No analysis available"
+#         
+#         for player in roster:
+#             player_name = player.get("name", "")
+#             
+#             # Check both possible field names for recommendations
+#             recommendation = ""
+#             if "openai_rec" in player:
+#                 recommendation = player["openai_rec"].get("recommendation", "")
+#             else:
+#                 recommendation = player.get("recommendation", "")
 
-        # Find swap candidates
-        coronato_analysis = "No analysis available"
-        michkov_analysis = "No analysis available"
-
-        for player in roster:
-            player_name = player.get("name", "")
-
-            # Check both possible field names for recommendations
-            recommendation = ""
-            if "openai_rec" in player:
-                recommendation = player["openai_rec"].get("recommendation", "")
-            else:
-                recommendation = player.get("recommendation", "")
-
-            if "Consider Swap" in recommendation and "Patrick Kane" in recommendation:
-                # Get detailed analysis for this swap
-                analysis = get_detailed_swap_analysis(player, "Patrick Kane")
-
-                if player_name == "Matt Coronato":
-                    coronato_analysis = analysis
-                elif player_name == "Matvei Michkov":
-                    michkov_analysis = analysis
-
-        return coronato_analysis, michkov_analysis
-
-    except Exception as e:
-        error_msg = f"Error generating analysis: {str(e)}"
-        return error_msg, error_msg
+#             if "Consider Swap" in recommendation and "Patrick Kane" in recommendation:
+#                 # Get detailed analysis for this swap
+#                 analysis = get_detailed_swap_analysis(player, "Patrick Kane")
+#                 
+#                 if player_name == "Matt Coronato":
+#                     coronato_analysis = analysis
+#                 elif player_name == "Matvei Michkov":
+#                     michkov_analysis = analysis
+#         
+#         return coronato_analysis, michkov_analysis
+#         
+#     except Exception as e:
+#         error_msg = f"Error generating analysis: {str(e)}"
+#         print(f"DEBUG: Swap analysis error: {error_msg}")
+#         return error_msg, error_msg
 
 
 def get_detailed_swap_analysis(
@@ -1381,14 +1393,14 @@ def render_my_team_tab(data: Dict[str, Any]) -> html.Div:
 def render_swap_analysis_tab(data: Dict[str, Any]) -> html.Div:
     """Render swap analysis tab with detailed OpenAI analysis"""
     roster = data.get("team_roster", [])
-    
+
     # Debug logging
     print(f"DEBUG: Swap analysis - roster length: {len(roster)}")
     if roster:
         print(f"DEBUG: First player keys: {list(roster[0].keys())}")
         for i, player in enumerate(roster[:3]):  # Check first 3 players
             print(f"DEBUG: Player {i}: {player.get('name', 'Unknown')}")
-            if 'openai_rec' in player:
+            if "openai_rec" in player:
                 print(f"DEBUG:   openai_rec: {player['openai_rec']}")
             else:
                 print(f"DEBUG:   No openai_rec field")
@@ -1400,7 +1412,7 @@ def render_swap_analysis_tab(data: Dict[str, Any]) -> html.Div:
                 html.P("Team data will be displayed here when available."),
             ]
         )
-    
+
     # Generate team recommendations if they don't exist
     roster_with_recommendations = []
     for player in roster:
@@ -1408,26 +1420,26 @@ def render_swap_analysis_tab(data: Dict[str, Any]) -> html.Div:
             # Generate recommendation for this player
             from openai_team_analyzer import get_openai_recommendation
             from utils import calculate_fantasy_points_per_game
-            
+
             # Get comparison data
             comparison_data = get_comparison_data()
-            
+
             # Load top free agents for comparison
             top_free_agents = _load_top_free_agents()
-            
+
             # Generate recommendation for this single player
             single_player_recs = get_openai_recommendation(
                 [player], comparison_data, top_free_agents
             )
-            
+
             # Add recommendation to player data
             player["openai_rec"] = single_player_recs.get(
                 player.get("name", ""),
-                {"recommendation": "Keep", "rationale": "Analysis in progress..."}
+                {"recommendation": "Keep", "rationale": "Analysis in progress..."},
             )
-        
+
         roster_with_recommendations.append(player)
-    
+
     # Find players with "Consider Swap" recommendations
     swap_candidates = []
     for player in roster_with_recommendations:
@@ -1437,11 +1449,13 @@ def render_swap_analysis_tab(data: Dict[str, Any]) -> html.Div:
             recommendation = player["openai_rec"].get("recommendation", "")
         else:
             recommendation = player.get("recommendation", "")
-            
-        print(f"DEBUG: {player.get('name', 'Unknown')} recommendation: '{recommendation}'")
+
+        print(
+            f"DEBUG: {player.get('name', 'Unknown')} recommendation: '{recommendation}'"
+        )
         if "Consider Swap" in recommendation:
             swap_candidates.append(player)
-    
+
     print(f"DEBUG: Found {len(swap_candidates)} swap candidates")
 
     if not swap_candidates:
@@ -1452,7 +1466,9 @@ def render_swap_analysis_tab(data: Dict[str, Any]) -> html.Div:
                     "No swap candidates found. All players are recommended to keep."
                 ),
                 html.P("Check back after the next analysis run for potential swaps."),
-                html.P(f"DEBUG: Checked {len(roster)} players for swap recommendations."),
+                html.P(
+                    f"DEBUG: Checked {len(roster)} players for swap recommendations."
+                ),
             ]
         )
 
