@@ -410,7 +410,7 @@ def get_detailed_swap_analysis(
         POTENTIAL TARGET: {target_player}
         """
 
-        prompt = f"""Find the latest updates on {current_player.get("name", "Unknown")} and {target_player} this week. 
+        prompt = f"""Perform a comprehensive fantasy hockey analysis comparing {current_player.get("name", "Unknown")} and {target_player}.
 
 {scoring_context}
 
@@ -418,12 +418,13 @@ I am considering dropping **{current_player.get("name", "Unknown")}** for **{tar
 
 {player_context}
 
-Please perform a comprehensive fantasy hockey analysis comparing these two players under our custom scoring system. Use web search to find:
+Please analyze these players under our custom scoring system considering:
 
-1. Current season stats and recent performance
-2. Recent news, injuries, or roster changes
-3. Team situations and line combinations
-4. Historical track record and career trends
+1. Current season performance and sample size
+2. Historical track record and career trends  
+3. Team situations and role expectations
+4. Position scarcity and roster construction
+5. Risk vs reward factors
 
 Provide your analysis in this format:
 
@@ -431,7 +432,7 @@ Provide your analysis in this format:
 [Detailed comparison with exact FP/G calculations using our scoring system]
 
 ### Context  
-[Team roles, recent developments, news, injuries, schedule analysis]
+[Team roles, historical performance, and strategic considerations]
 
 ### Verdict
 [Clear recommendation: DROP, KEEP, or CONSIDER with specific reasoning]
@@ -441,13 +442,19 @@ Provide your analysis in this format:
 
 Be specific about fantasy point calculations using our exact scoring system."""
 
-        response = client.responses.create(
-            model="gpt-4o-mini",  # Using mini for cost efficiency
-            input=prompt,
-            tools=[{"type": "web_search"}],  # Enable web search
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {
+                    "role": "system",
+                    "content": "You are a fantasy hockey expert. Provide comprehensive analysis comparing players using the provided scoring system. Give specific fantasy point calculations and clear recommendations."
+                },
+                {"role": "user", "content": prompt}
+            ],
+            max_tokens=1000,
         )
 
-        return response.output_text
+        return response.choices[0].message.content
 
     except Exception as e:
         return f"Analysis unavailable: {str(e)}"
