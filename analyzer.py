@@ -118,18 +118,18 @@ class FantasyHockeyAnalyzer:
         games_played = stats.get("games_played", 0)
         if games_played < 3:
             return 5.0  # Neutral rating for very small sample size
-        
+
         # Calculate fantasy points per game
         total_fantasy_points = stats.get("fantasy_points", 0)
         fp_per_game = total_fantasy_points / games_played if games_played > 0 else 0
-        
+
         # Base consistency on games played and production level
         # More games = higher consistency (proven track record)
         # Higher production = higher consistency (reliable contributor)
-        
+
         # Games played factor (0-5 points)
         games_factor = min(5.0, games_played / 4.0)  # Max at 20 games
-        
+
         # Production factor (0-5 points)
         if fp_per_game >= 4.0:
             production_factor = 5.0  # Elite production
@@ -141,7 +141,7 @@ class FantasyHockeyAnalyzer:
             production_factor = 2.0  # Decent production
         else:
             production_factor = 1.0  # Low production
-        
+
         consistency = games_factor + production_factor
         return min(10.0, consistency)
 
@@ -205,7 +205,7 @@ class FantasyHockeyAnalyzer:
         for p in players:
             games_played = p.get("stats", {}).get("games_played", 0)
             total_fantasy_points = p.get("fantasy_points", 0)
-            
+
             # Must meet both thresholds
             if games_played >= min_games and total_fantasy_points >= min_total_points:
                 filtered_players.append(p)

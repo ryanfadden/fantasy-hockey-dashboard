@@ -314,7 +314,7 @@ def update_swap_analysis(data_json):
 
         # Find swap candidates and extract their targets
         analyses = {}
-        
+
         for player in roster:
             player_name = player.get("name", "")
 
@@ -346,14 +346,16 @@ def update_swap_analysis(data_json):
                     )
                     analysis = get_detailed_swap_analysis(player, target_player)
                     print(f"DEBUG: Analysis result: {analysis[:100]}...")
-                    
+
                     analyses[player_name] = analysis
 
         # Return analyses for the specific hardcoded outputs (for now)
         coronato_analysis = analyses.get("Matt Coronato", "No analysis available")
         michkov_analysis = analyses.get("Matvei Michkov", "No analysis available")
-        
-        print(f"DEBUG: Returning analyses - Coronato: {len(coronato_analysis)}, Michkov: {len(michkov_analysis)}")
+
+        print(
+            f"DEBUG: Returning analyses - Coronato: {len(coronato_analysis)}, Michkov: {len(michkov_analysis)}"
+        )
         return coronato_analysis, michkov_analysis
 
     except Exception as e:
@@ -1408,16 +1410,6 @@ def render_swap_analysis_tab(data: Dict[str, Any]) -> html.Div:
     """Render swap analysis tab with detailed OpenAI analysis"""
     roster = data.get("team_roster", [])
 
-    # Debug logging
-    print(f"DEBUG: Swap analysis - roster length: {len(roster)}")
-    if roster:
-        print(f"DEBUG: First player keys: {list(roster[0].keys())}")
-        for i, player in enumerate(roster[:3]):  # Check first 3 players
-            print(f"DEBUG: Player {i}: {player.get('name', 'Unknown')}")
-            if "openai_rec" in player:
-                print(f"DEBUG:   openai_rec: {player['openai_rec']}")
-            else:
-                print(f"DEBUG:   No openai_rec field")
 
     if not roster:
         return html.Div(
