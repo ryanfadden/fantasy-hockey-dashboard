@@ -366,10 +366,16 @@ def get_detailed_swap_analysis(
 ) -> str:
     """Get detailed OpenAI analysis for a potential swap"""
     try:
+        print(f"DEBUG: Starting analysis for {current_player.get('name')} → {target_player}")
         from openai import OpenAI
         import os
 
-        client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        api_key = os.getenv("OPENAI_API_KEY")
+        if not api_key:
+            return "Analysis unavailable: No OpenAI API key found"
+        
+        print(f"DEBUG: API key found, creating client")
+        client = OpenAI(api_key=api_key)
 
         # Build context about the league scoring
         scoring_context = """
@@ -442,18 +448,20 @@ Provide your analysis in this format:
 
 Be specific about fantasy point calculations using our exact scoring system."""
 
+        print(f"DEBUG: Making API call with prompt length: {len(prompt)}")
         response = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
                 {
                     "role": "system",
-                    "content": "You are a fantasy hockey expert. Provide comprehensive analysis comparing players using the provided scoring system. Give specific fantasy point calculations and clear recommendations."
+                    "content": "You are a fantasy hockey expert. Provide comprehensive analysis comparing players using the provided scoring system. Give specific fantasy point calculations and clear recommendations.",
                 },
-                {"role": "user", "content": prompt}
+                {"role": "user", "content": prompt},
             ],
             max_tokens=1000,
         )
 
+        print(f"DEBUG: API call successful, response length: {len(response.choices[0].message.content)}")
         return response.choices[0].message.content
 
     except Exception as e:
