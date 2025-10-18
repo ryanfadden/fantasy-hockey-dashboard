@@ -202,7 +202,9 @@ class ESPNFantasyClient:
 
             # Calculate fantasy points using the same method as historical data
             fantasy_points = self._calculate_fantasy_points_from_stats(total_stats)
-            fantasy_points_per_game = fantasy_points / games_played if games_played > 0 else 0.0
+            fantasy_points_per_game = (
+                fantasy_points / games_played if games_played > 0 else 0.0
+            )
 
             return {
                 "games_played": games_played,
