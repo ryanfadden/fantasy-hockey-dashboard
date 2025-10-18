@@ -1486,14 +1486,18 @@ def render_general_analysis_tab(data: Dict[str, Any]) -> html.Div:
 def main():
     """Run the dashboard"""
     print("Starting Fantasy Hockey Dashboard...")
+    
+    # Get port from environment variable (for Render deployment)
+    port = int(os.environ.get("PORT", DASHBOARD_CONFIG["port"]))
+    
     print(
-        f"Dashboard will be available at: http://localhost:{DASHBOARD_CONFIG['port']}"
+        f"Dashboard will be available at: http://localhost:{port}"
     )
 
     app.run_server(
         host=DASHBOARD_CONFIG["host"],
-        port=DASHBOARD_CONFIG["port"],
-        debug=DASHBOARD_CONFIG["debug"],
+        port=port,
+        debug=False,  # Set to False for production
     )
 
 
