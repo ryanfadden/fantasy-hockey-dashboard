@@ -195,6 +195,8 @@ def get_performance_comparison(
 def load_latest_data() -> Dict[str, Any]:
     """Load the latest analysis data"""
     try:
+        summary_data = {}  # Initialize empty dict
+        
         # Try to load latest summary
         summary_file = get_latest_data_file("output", "summary_")
         if summary_file:
@@ -217,19 +219,21 @@ def load_latest_data() -> Dict[str, Any]:
 
         return summary_data
 
-        # Fallback to latest recommendations
-        rec_file = get_latest_data_file("output", "recommendations_")
-        if rec_file:
-            with open(rec_file, "r") as f:
-                recommendations = json.load(f)
-                return {
-                    "recommendations": recommendations,
-                    "timestamp": datetime.now().strftime("%Y%m%d_%H%M%S"),
-                }
-
-        return {}
     except Exception as e:
         print(f"Error loading data: {e}")
+        # Fallback to latest recommendations
+        try:
+            rec_file = get_latest_data_file("output", "recommendations_")
+            if rec_file:
+                with open(rec_file, "r") as f:
+                    recommendations = json.load(f)
+                    return {
+                        "recommendations": recommendations,
+                        "timestamp": datetime.now().strftime("%Y%m%d_%H%M%S"),
+                    }
+        except Exception as e2:
+            print(f"Error loading fallback data: {e2}")
+        
         return {}
 
 

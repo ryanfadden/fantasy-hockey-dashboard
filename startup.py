@@ -59,11 +59,12 @@ def main():
     print("🏒 Fantasy Hockey Dashboard Startup")
     print(f"Timestamp: {datetime.now()}")
     
-    # Check if data directories exist
-    if not os.path.exists('/app/data') or not os.path.exists('/app/output'):
-        print("📁 Creating data directories...")
-        os.makedirs('/app/data', exist_ok=True)
-        os.makedirs('/app/output', exist_ok=True)
+    # Create all necessary directories
+    directories = ['/app/data', '/app/output', '/app/reports', '/app/logs']
+    for directory in directories:
+        if not os.path.exists(directory):
+            print(f"📁 Creating directory: {directory}")
+            os.makedirs(directory, exist_ok=True)
     
     # Run data collection
     data_success = run_data_collection()
