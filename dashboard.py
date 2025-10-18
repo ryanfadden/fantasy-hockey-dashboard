@@ -296,52 +296,61 @@ def render_tab_content(active_tab, data_json):
         return html.Div("Select a tab to view content")
 
 
-# Temporarily disabled to fix tab switching issue
-# @app.callback(
-#     [
-#         Output("swap-analysis-Matt-Coronato", "children", allow_duplicate=True),
-#         Output("swap-analysis-Matvei-Michkov", "children", allow_duplicate=True),
-#     ],
-#     [Input("data-store", "children")],
-#     prevent_initial_call=True,  # Prevent callback from running on initial load
-# )
-# def update_swap_analysis(data_json):
-#     """Update swap analysis with OpenAI insights"""
-#     print("DEBUG: Swap analysis callback triggered")
-#
-#     try:
-#         data = json.loads(data_json) if data_json else {}
-#         roster = data.get("team_roster", [])
-#
-#         # Find swap candidates
-#         coronato_analysis = "No analysis available"
-#         michkov_analysis = "No analysis available"
-#
-#         for player in roster:
-#             player_name = player.get("name", "")
-#
-#             # Check both possible field names for recommendations
-#             recommendation = ""
-#             if "openai_rec" in player:
-#                 recommendation = player["openai_rec"].get("recommendation", "")
-#             else:
-#                 recommendation = player.get("recommendation", "")
+@app.callback(
+    [
+        Output("swap-analysis-Matt-Coronato", "children", allow_duplicate=True),
+        Output("swap-analysis-Matvei-Michkov", "children", allow_duplicate=True),
+    ],
+    [Input("data-store", "children")],
+    prevent_initial_call=True,  # Prevent callback from running on initial load
+)
+def update_swap_analysis(data_json):
+    """Update swap analysis with OpenAI insights"""
+    print("DEBUG: Swap analysis callback triggered")
+    
+    try:
+        data = json.loads(data_json) if data_json else {}
+        roster = data.get("team_roster", [])
+        
+        # Find swap candidates and extract their targets
+        coronato_analysis = "No analysis available"
+        michkov_analysis = "No analysis available"
+        
+        for player in roster:
+            player_name = player.get("name", "")
+            
+            # Check both possible field names for recommendations
+            recommendation = ""
+            rationale = ""
+            if "openai_rec" in player:
+                recommendation = player["openai_rec"].get("recommendation", "")
+                rationale = player["openai_rec"].get("rationale", "")
+            else:
+                recommendation = player.get("recommendation", "")
+                rationale = player.get("rationale", "")
 
-#             if "Consider Swap" in recommendation and "Patrick Kane" in recommendation:
-#                 # Get detailed analysis for this swap
-#                 analysis = get_detailed_swap_analysis(player, "Patrick Kane")
-#
-#                 if player_name == "Matt Coronato":
-#                     coronato_analysis = analysis
-#                 elif player_name == "Matvei Michkov":
-#                     michkov_analysis = analysis
-#
-#         return coronato_analysis, michkov_analysis
-#
-#     except Exception as e:
-#         error_msg = f"Error generating analysis: {str(e)}"
-#         print(f"DEBUG: Swap analysis error: {error_msg}")
-#         return error_msg, error_msg
+            if "Consider Swap" in recommendation and "Moderate upgrade:" in rationale:
+                # Extract target player from rationale
+                import re
+                match = re.search(r"Moderate upgrade: ([^(]+) \(\+(\d+\.?\d*) FP/G improvement\)", rationale)
+                if match:
+                    target_player = match.group(1).strip()
+                    print(f"DEBUG: Found swap {player_name} → {target_player}")
+                    
+                    # Get detailed analysis for this swap
+                    analysis = get_detailed_swap_analysis(player, target_player)
+                    
+                    if player_name == "Matt Coronato":
+                        coronato_analysis = analysis
+                    elif player_name == "Matvei Michkov":
+                        michkov_analysis = analysis
+        
+        return coronato_analysis, michkov_analysis
+        
+    except Exception as e:
+        error_msg = f"Error generating analysis: {str(e)}"
+        print(f"DEBUG: Swap analysis error: {error_msg}")
+        return error_msg, error_msg
 
 
 def get_detailed_swap_analysis(
@@ -1393,7 +1402,7 @@ def render_my_team_tab(data: Dict[str, Any]) -> html.Div:
 def render_swap_analysis_tab(data: Dict[str, Any]) -> html.Div:
     """Render swap analysis tab with detailed OpenAI analysis"""
     roster = data.get("team_roster", [])
-    
+
     # Debug logging
     print(f"DEBUG: Swap analysis - roster length: {len(roster)}")
     if roster:
@@ -1412,31 +1421,31 @@ def render_swap_analysis_tab(data: Dict[str, Any]) -> html.Div:
                 html.P("Team data will be displayed here when available."),
             ]
         )
-    
+
     # Use the same logic as My Team tab to get recommendations
     from openai_team_analyzer import get_openai_recommendation
-    
+
     # Get comparison data
     comparison_data = get_player_comparison_data()
-    
+
     # Load top free agents for comparison
     top_free_agents = _load_top_free_agents()
-    
+
     # Generate recommendations for all players (same as My Team tab)
     openai_recommendations = get_openai_recommendation(
         roster, comparison_data, top_free_agents
     )
-    
+
     # Add recommendations to roster data
     roster_with_recommendations = []
     for player in roster:
         player_name = player.get("name", "")
         player["openai_rec"] = openai_recommendations.get(
             player_name,
-            {"recommendation": "Keep", "rationale": "Analysis in progress..."}
+            {"recommendation": "Keep", "rationale": "Analysis in progress..."},
         )
         roster_with_recommendations.append(player)
-    
+
     # Find players with "Consider Swap" recommendations
     swap_candidates = []
     for player in roster_with_recommendations:
@@ -1446,13 +1455,13 @@ def render_swap_analysis_tab(data: Dict[str, Any]) -> html.Div:
             recommendation = player["openai_rec"].get("recommendation", "")
         else:
             recommendation = player.get("recommendation", "")
-            
+
         print(
             f"DEBUG: {player.get('name', 'Unknown')} recommendation: '{recommendation}'"
         )
         if "Consider Swap" in recommendation:
             swap_candidates.append(player)
-    
+
     print(f"DEBUG: Found {len(swap_candidates)} swap candidates")
 
     if not swap_candidates:
@@ -1486,14 +1495,22 @@ def render_swap_analysis_tab(data: Dict[str, Any]) -> html.Div:
         else:
             recommendation = player.get("recommendation", "")
             rationale = player.get("rationale", "")
-
+            
         swap_target = "Unknown Player"
         fp_improvement = 0
 
-        if "Patrick Kane" in recommendation:
-            swap_target = "Patrick Kane"
-            # Don't extract FP improvement - let AI calculate it independently
-            fp_improvement = 0  # Will be calculated by AI analysis
+        # Parse the rationale to extract target player and FP improvement
+        if "Consider Swap" in recommendation and "Moderate upgrade:" in rationale:
+            import re
+            
+            # Extract target player name from "Moderate upgrade: PlayerName (+X.X FP/G improvement)"
+            match = re.search(r"Moderate upgrade: ([^(]+) \(\+(\d+\.?\d*) FP/G improvement\)", rationale)
+            if match:
+                swap_target = match.group(1).strip()
+                fp_improvement = float(match.group(2))
+                print(f"DEBUG: Extracted swap target '{swap_target}' with {fp_improvement} FP/G improvement")
+            else:
+                print(f"DEBUG: Could not parse rationale: '{rationale}'")
 
         # Create swap analysis card
         card = html.Div(
@@ -1507,6 +1524,7 @@ def render_swap_analysis_tab(data: Dict[str, Any]) -> html.Div:
                         html.P(f"Position: {position} | Team: {team}"),
                         html.P(f"Current FP/G: {current_fp:.2f}"),
                         html.P(f"Potential Target: {swap_target}"),
+                        html.P(f"Potential Improvement: +{fp_improvement:.1f} FP/G"),
                     ],
                     style={"marginBottom": "15px"},
                 ),
