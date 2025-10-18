@@ -308,7 +308,13 @@ def update_swap_analysis(data_json):
 
         for player in roster:
             player_name = player.get("name", "")
-            recommendation = player.get("recommendation", "")
+            
+            # Check both possible field names for recommendations
+            recommendation = ""
+            if "openai_rec" in player:
+                recommendation = player["openai_rec"].get("recommendation", "")
+            else:
+                recommendation = player.get("recommendation", "")
 
             if "Consider Swap" in recommendation and "Patrick Kane" in recommendation:
                 # Get detailed analysis for this swap
@@ -1367,7 +1373,13 @@ def render_swap_analysis_tab(data: Dict[str, Any]) -> html.Div:
     # Find players with "Consider Swap" recommendations
     swap_candidates = []
     for player in roster:
-        recommendation = player.get("recommendation", "")
+        # Check both possible field names for recommendations
+        recommendation = ""
+        if "openai_rec" in player:
+            recommendation = player["openai_rec"].get("recommendation", "")
+        else:
+            recommendation = player.get("recommendation", "")
+            
         if "Consider Swap" in recommendation:
             swap_candidates.append(player)
 
@@ -1391,16 +1403,24 @@ def render_swap_analysis_tab(data: Dict[str, Any]) -> html.Div:
         current_fp = player.get("fantasy_points_per_game", 0)
 
         # Extract swap target from recommendation
-        recommendation = player.get("recommendation", "")
+        recommendation = ""
+        rationale = ""
+        if "openai_rec" in player:
+            recommendation = player["openai_rec"].get("recommendation", "")
+            rationale = player["openai_rec"].get("rationale", "")
+        else:
+            recommendation = player.get("recommendation", "")
+            rationale = player.get("rationale", "")
+            
         swap_target = "Unknown Player"
         fp_improvement = 0
 
         if "Patrick Kane" in recommendation:
             swap_target = "Patrick Kane"
-            # Extract FP improvement from recommendation text
+            # Extract FP improvement from rationale text
             import re
 
-            match = re.search(r"\+(\d+\.?\d*) FP/G improvement", recommendation)
+            match = re.search(r"\+(\d+\.?\d*) FP/G improvement", rationale)
             if match:
                 fp_improvement = float(match.group(1))
 
