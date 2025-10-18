@@ -196,7 +196,7 @@ def load_latest_data() -> Dict[str, Any]:
     """Load the latest analysis data"""
     try:
         summary_data = {}  # Initialize empty dict
-        
+
         # Try to load latest summary
         summary_file = get_latest_data_file("output", "summary_")
         if summary_file:
@@ -233,7 +233,7 @@ def load_latest_data() -> Dict[str, Any]:
                     }
         except Exception as e2:
             print(f"Error loading fallback data: {e2}")
-        
+
         return {}
 
 
@@ -303,11 +303,10 @@ def get_ranking_explanation(
 
     # Calculate individual score contributions
     weights = {
-        "fantasy_points_per_game": 0.4,
+        "fantasy_points_per_game": 0.5,
         "consistency_rating": 0.25,
-        "upside_potential": 0.25,
-        "position_scarcity": 0.1,
-        "injury_risk": 0.1,
+        "upside_potential": 0.2,
+        "position_scarcity": 0.05,
     }
 
     contributions = []
@@ -333,13 +332,6 @@ def get_ranking_explanation(
     position_contrib = position_scarcity * weights["position_scarcity"]
     contributions.append(
         ("Position", position_contrib, f"{position_scarcity:.1f}/10 scarcity")
-    )
-
-    # Injury risk contribution
-    injury_risk = analysis.get("injury_risk", 0)
-    injury_contrib = injury_risk * weights["injury_risk"]
-    contributions.append(
-        ("Health", injury_contrib, f"{injury_risk:.1f}/10 injury risk")
     )
 
     # Sort by contribution value (descending)
@@ -375,24 +367,24 @@ def _load_top_free_agents() -> List[Dict[str, Any]]:
         import json
         import glob
         import os
-        
+
         # Find the latest recommendations file
         recommendation_files = glob.glob("output/recommendations_*.json")
         if not recommendation_files:
             return []
-        
+
         # Get the most recent file
         latest_file = max(recommendation_files, key=os.path.getmtime)
-        
+
         with open(latest_file, "r") as f:
             recommendations_data = json.load(f)
-        
+
         if not recommendations_data:
             return []
-        
+
         # Return the recommendations (they're already sorted by value score)
         return recommendations_data
-        
+
     except Exception as e:
         print(f"Error loading recommendations: {e}")
         return []
@@ -487,7 +479,7 @@ def get_team_player_ranking_explanation(
         elif position == "Defense":
             factors.append("15% defense boost applied")
         elif position in ["Center", "Left Wing", "Right Wing"]:
-            factors.append("No forward boost applied")
+            factors.append("No position boost applied")
 
         return " • ".join(factors)
 
@@ -1490,13 +1482,11 @@ def render_general_analysis_tab(data: Dict[str, Any]) -> html.Div:
 def main():
     """Run the dashboard"""
     print("Starting Fantasy Hockey Dashboard...")
-    
+
     # Get port from environment variable (for Render deployment)
     port = int(os.environ.get("PORT", DASHBOARD_CONFIG["port"]))
-    
-    print(
-        f"Dashboard will be available at: http://localhost:{port}"
-    )
+
+    print(f"Dashboard will be available at: http://localhost:{port}")
 
     app.run_server(
         host=DASHBOARD_CONFIG["host"],
