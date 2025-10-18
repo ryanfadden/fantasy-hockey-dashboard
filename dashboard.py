@@ -1410,7 +1410,6 @@ def render_swap_analysis_tab(data: Dict[str, Any]) -> html.Div:
     """Render swap analysis tab with detailed OpenAI analysis"""
     roster = data.get("team_roster", [])
 
-
     if not roster:
         return html.Div(
             [
