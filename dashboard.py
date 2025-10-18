@@ -339,26 +339,30 @@ def get_detailed_swap_analysis(
     try:
         from openai import OpenAI
         import os
-
+        
         client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-
+        
         # Build context about the league scoring
         scoring_context = """
         LEAGUE SCORING SYSTEM:
-        - Goals: 2 points
-        - Assists: 1 point  
-        - Powerplay Points: 0.5 points
-        - Shorthanded Points: 0.5 points
-        - Shots on Goal: 0.2 points
-        - Hits: 0.4 points
-        - Blocks: 0.8 points
-        - Goalie Wins: 4 points
-        - Goals Against: -1 point
-        - Saves: 0.2 points
-        - Shutouts: 3 points
-        - Overtime Losses: 1 point
-        """
 
+        Skater Scoring:
+        - Goals (G): 2 points
+        - Assists (A): 1 point
+        - Power Play Points (PPP): 0.5 points
+        - Short Handed Points (SHP): 0.5 points
+        - Shots on Goal (SOG): 0.2 points
+        - Hits (HIT): 0.4 points
+        - Blocked Shots (BLK): 0.8 points
+
+        Goaltender Scoring:
+        - Wins (W): 4 points
+        - Goals Against (GA): -1 point
+        - Saves (SV): 0.2 points
+        - Shutouts (SO): 3 points
+        - Overtime Losses (OTL): 1 point
+        """
+        
         # Build player context
         player_context = f"""
         CURRENT PLAYER: {current_player.get("name", "Unknown")}
@@ -368,30 +372,38 @@ def get_detailed_swap_analysis(
         - Games Played: {current_player.get("stats", {}).get("games_played", 0)}
         - Goals: {current_player.get("stats", {}).get("goals", 0)}
         - Assists: {current_player.get("stats", {}).get("assists", 0)}
-        - Shots: {current_player.get("stats", {}).get("shots_on_goal", 0)}
+        - Power Play Points: {current_player.get("stats", {}).get("powerplay_points", 0)}
+        - Short Handed Points: {current_player.get("stats", {}).get("shorthanded_points", 0)}
+        - Shots on Goal: {current_player.get("stats", {}).get("shots_on_goal", 0)}
         - Hits: {current_player.get("stats", {}).get("hits", 0)}
-        - Blocks: {current_player.get("stats", {}).get("blocks", 0)}
+        - Blocked Shots: {current_player.get("stats", {}).get("blocks", 0)}
         
         POTENTIAL TARGET: {target_player}
         """
-
+        
         prompt = f"""
         {scoring_context}
         
+        I am considering dropping **{current_player.get("name", "Unknown")}** for **{target_player}**.
+        
         {player_context}
         
-        As a fantasy hockey expert, analyze this potential swap using the same comprehensive approach as ChatGPT's agent mode. I need an in-depth comparison that considers:
+        Please perform a comprehensive fantasy hockey analysis comparing these two players under our custom scoring system.
+        
+        REQUIRED ANALYSIS STRUCTURE:
         
         1. CURRENT PERFORMANCE ANALYSIS:
-           - Convert both players' stats to our custom scoring system
+           - Convert both players' current season stats to our custom scoring system
            - Calculate exact fantasy points per game (FP/G) for each player
            - Analyze sample size and consistency of production
+           - Compare current performance levels
         
         2. CONTEXTUAL FACTORS:
            - Team situations, line combinations, and power-play roles
            - Recent news, injuries, or roster changes affecting ice time
            - Schedule strength and upcoming matchups
            - Historical track record and career trends
+           - Age and development trajectory
         
         3. STRATEGIC RECOMMENDATIONS:
            - Long-term vs short-term value assessment
@@ -399,15 +411,23 @@ def get_detailed_swap_analysis(
            - Risk vs reward analysis
            - Specific drop/add recommendation with clear reasoning
         
-        Provide a detailed analysis similar to this format:
-        - "Player A vs Player B" section with current stats converted to our scoring
-        - "Context" sections explaining team roles and recent developments
-        - "Verdict" with specific recommendation and reasoning
-        - "Summary" with clear action items
+        REQUIRED OUTPUT FORMAT:
         
-        Use current information from the internet to support your analysis. Be specific about fantasy point calculations and provide concrete recommendations.
+        ### Player A vs Player B
+        [Detailed comparison with exact FP/G calculations using our scoring system]
+        
+        ### Context
+        [Team roles, recent developments, news, injuries, schedule analysis]
+        
+        ### Verdict
+        [Clear recommendation: DROP, KEEP, or CONSIDER with specific reasoning]
+        
+        ### Summary
+        [Actionable recommendation with key factors]
+        
+        Use current information from the internet to support your analysis. Be specific about fantasy point calculations using our exact scoring system.
         """
-
+        
         response = client.chat.completions.create(
             model="gpt-4o",
             messages=[
@@ -420,9 +440,9 @@ def get_detailed_swap_analysis(
             tools=[{"type": "web_search"}],  # Enable web search
             max_tokens=1000,
         )
-
+        
         return response.choices[0].message.content
-
+        
     except Exception as e:
         return f"Analysis unavailable: {str(e)}"
 
