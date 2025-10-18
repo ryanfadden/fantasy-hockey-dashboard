@@ -339,9 +339,9 @@ def get_detailed_swap_analysis(
     try:
         from openai import OpenAI
         import os
-        
+
         client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-        
+
         # Build context about the league scoring
         scoring_context = """
         LEAGUE SCORING SYSTEM:
@@ -362,7 +362,7 @@ def get_detailed_swap_analysis(
         - Shutouts (SO): 3 points
         - Overtime Losses (OTL): 1 point
         """
-        
+
         # Build player context
         player_context = f"""
         CURRENT PLAYER: {current_player.get("name", "Unknown")}
@@ -380,7 +380,7 @@ def get_detailed_swap_analysis(
         
         POTENTIAL TARGET: {target_player}
         """
-        
+
         prompt = f"""
         {scoring_context}
         
@@ -427,7 +427,7 @@ def get_detailed_swap_analysis(
         
         Use current information from the internet to support your analysis. Be specific about fantasy point calculations using our exact scoring system.
         """
-        
+
         response = client.chat.completions.create(
             model="gpt-4o",
             messages=[
@@ -440,9 +440,9 @@ def get_detailed_swap_analysis(
             tools=[{"type": "web_search"}],  # Enable web search
             max_tokens=1000,
         )
-        
+
         return response.choices[0].message.content
-        
+
     except Exception as e:
         return f"Analysis unavailable: {str(e)}"
 
@@ -1381,6 +1381,17 @@ def render_my_team_tab(data: Dict[str, Any]) -> html.Div:
 def render_swap_analysis_tab(data: Dict[str, Any]) -> html.Div:
     """Render swap analysis tab with detailed OpenAI analysis"""
     roster = data.get("team_roster", [])
+    
+    # Debug logging
+    print(f"DEBUG: Swap analysis - roster length: {len(roster)}")
+    if roster:
+        print(f"DEBUG: First player keys: {list(roster[0].keys())}")
+        for i, player in enumerate(roster[:3]):  # Check first 3 players
+            print(f"DEBUG: Player {i}: {player.get('name', 'Unknown')}")
+            if 'openai_rec' in player:
+                print(f"DEBUG:   openai_rec: {player['openai_rec']}")
+            else:
+                print(f"DEBUG:   No openai_rec field")
 
     if not roster:
         return html.Div(
@@ -1389,19 +1400,49 @@ def render_swap_analysis_tab(data: Dict[str, Any]) -> html.Div:
                 html.P("Team data will be displayed here when available."),
             ]
         )
-
+    
+    # Generate team recommendations if they don't exist
+    roster_with_recommendations = []
+    for player in roster:
+        if "openai_rec" not in player:
+            # Generate recommendation for this player
+            from openai_team_analyzer import get_openai_recommendation
+            from utils import calculate_fantasy_points_per_game
+            
+            # Get comparison data
+            comparison_data = get_comparison_data()
+            
+            # Load top free agents for comparison
+            top_free_agents = _load_top_free_agents()
+            
+            # Generate recommendation for this single player
+            single_player_recs = get_openai_recommendation(
+                [player], comparison_data, top_free_agents
+            )
+            
+            # Add recommendation to player data
+            player["openai_rec"] = single_player_recs.get(
+                player.get("name", ""),
+                {"recommendation": "Keep", "rationale": "Analysis in progress..."}
+            )
+        
+        roster_with_recommendations.append(player)
+    
     # Find players with "Consider Swap" recommendations
     swap_candidates = []
-    for player in roster:
+    for player in roster_with_recommendations:
         # Check both possible field names for recommendations
         recommendation = ""
         if "openai_rec" in player:
             recommendation = player["openai_rec"].get("recommendation", "")
         else:
             recommendation = player.get("recommendation", "")
-
+            
+        print(f"DEBUG: {player.get('name', 'Unknown')} recommendation: '{recommendation}'")
         if "Consider Swap" in recommendation:
             swap_candidates.append(player)
+    
+    print(f"DEBUG: Found {len(swap_candidates)} swap candidates")
 
     if not swap_candidates:
         return html.Div(
@@ -1411,6 +1452,7 @@ def render_swap_analysis_tab(data: Dict[str, Any]) -> html.Div:
                     "No swap candidates found. All players are recommended to keep."
                 ),
                 html.P("Check back after the next analysis run for potential swaps."),
+                html.P(f"DEBUG: Checked {len(roster)} players for swap recommendations."),
             ]
         )
 
