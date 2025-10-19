@@ -13,11 +13,7 @@ import glob
 from datetime import datetime
 from typing import List, Dict, Any
 from utils import get_latest_data_file, format_timestamp
-from analysis_config import (
-    OPENAI_PROMPTS,
-    get_openai_prompt,
-    DASHBOARD_CONFIG
-)
+from analysis_config import OPENAI_PROMPTS, get_openai_prompt, DASHBOARD_CONFIG
 
 # Initialize Dash app
 app = dash.Dash(__name__)
@@ -510,13 +506,15 @@ def get_detailed_swap_analysis(
             current_fp_per_game=current_player.get("fantasy_points_per_game", 0),
             current_games_played=current_player.get("stats", {}).get("games_played", 0),
             current_stats=f"Goals: {current_player.get('stats', {}).get('goals', 0)}, Assists: {current_player.get('stats', {}).get('assists', 0)}, PPP: {current_player.get('stats', {}).get('powerplay_points', 0)}, SHP: {current_player.get('stats', {}).get('shorthanded_points', 0)}, SOG: {current_player.get('stats', {}).get('shots_on_goal', 0)}, Hits: {current_player.get('stats', {}).get('hits', 0)}, Blocks: {current_player.get('stats', {}).get('blocks', 0)}",
-            current_value_score=current_player.get("analysis", {}).get("value_score", 0),
+            current_value_score=current_player.get("analysis", {}).get(
+                "value_score", 0
+            ),
             target_position="Unknown",  # We don't have target player details here
             target_team="Unknown",
             target_fp_per_game=0,
             target_games_played=0,
             target_stats="Unknown",
-            target_value_score=0
+            target_value_score=0,
         )
         print(f"DEBUG: Making API call with prompt length: {len(prompt)}")
         print("DEBUG: About to call OpenAI API...")

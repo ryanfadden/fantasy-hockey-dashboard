@@ -17,7 +17,7 @@ from analysis_config import (
     get_value_score_weights,
     get_recommendation_thresholds
 )
-from config import OPENAI_API_KEY
+import os
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -29,7 +29,7 @@ class FantasyHockeyAnalyzer:
 
     def __init__(self):
         """Initialize the analyzer with OpenAI client"""
-        self.openai_client = OpenAI(api_key=OPENAI_API_KEY) if OPENAI_API_KEY else None
+        self.openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY")) if os.getenv("OPENAI_API_KEY") else None
         self.scoring_categories = SCORING_CATEGORIES
         self.analysis_settings = ANALYSIS_SETTINGS
 
