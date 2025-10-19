@@ -66,8 +66,8 @@ def calculate_fantasy_points_per_game(
     if games_played <= 0:
         return 0.0
 
-    # Import scoring categories from config
-    from config import SCORING_CATEGORIES
+    # Import scoring categories from analysis_config
+    from analysis_config import SCORING_CATEGORIES
 
     # Calculate total fantasy points using league scoring
     total_points = 0
@@ -116,7 +116,13 @@ def send_notification(title: str, message: str) -> None:
 
 def validate_espn_credentials() -> bool:
     """Validate ESPN credentials are available"""
-    from config import ESPN_S2, ESPN_SWID, LEAGUE_ID
+    import os
+    from dotenv import load_dotenv
+    
+    load_dotenv()
+    ESPN_S2 = os.getenv("ESPN_S2")
+    ESPN_SWID = os.getenv("ESPN_SWID")
+    LEAGUE_ID = os.getenv("LEAGUE_ID")
 
     if not LEAGUE_ID:
         logging.error("LEAGUE_ID not set in environment variables")
@@ -130,7 +136,11 @@ def validate_espn_credentials() -> bool:
 
 def validate_openai_credentials() -> bool:
     """Validate OpenAI credentials are available"""
-    from config import OPENAI_API_KEY
+    import os
+    from dotenv import load_dotenv
+    
+    load_dotenv()
+    OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
     if not OPENAI_API_KEY:
         logging.warning("OPENAI_API_KEY not set - AI analysis will be limited")

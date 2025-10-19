@@ -138,7 +138,7 @@ app.layout = html.Div(
 
 def calculate_fantasy_points_per_game(stats: Dict[str, Any]) -> float:
     """Calculate fantasy points per game using league scoring"""
-    from config import SCORING_CATEGORIES
+    from analysis_config import SCORING_CATEGORIES
 
     total_points = 0.0
     for category, points_per_unit in SCORING_CATEGORIES.items():

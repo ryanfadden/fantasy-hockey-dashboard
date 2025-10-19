@@ -208,6 +208,9 @@ DASHBOARD_CONFIG = {
     "refresh_interval": 5 * 60 * 1000,  # 5 minutes in milliseconds
     "max_display_players": 50,
     "tabs": ["recommendations", "my-team", "swap-analysis"],
+    "host": "0.0.0.0",
+    "port": 8050,
+    "debug": False,
 }
 
 # =============================================================================

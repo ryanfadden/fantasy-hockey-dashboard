@@ -5,9 +5,20 @@ Handles all interactions with ESPN's fantasy hockey API
 
 import json
 import logging
+import os
 from typing import List, Dict, Optional, Any
 from espn_api.hockey import League
-from config import ESPN_S2, ESPN_SWID, LEAGUE_ID, YEAR, TEAM_ID
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
+
+# ESPN Configuration
+ESPN_S2 = os.getenv("ESPN_S2")
+ESPN_SWID = os.getenv("ESPN_SWID")
+LEAGUE_ID = os.getenv("LEAGUE_ID")
+YEAR = int(os.getenv("YEAR", 2026))
+TEAM_ID = os.getenv("TEAM_ID")
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -371,7 +382,7 @@ class ESPNFantasyClient:
 
     def _calculate_fantasy_points_from_stats(self, stats: Dict[str, Any]) -> float:
         """Calculate fantasy points from raw stats"""
-        from config import SCORING_CATEGORIES
+        from analysis_config import SCORING_CATEGORIES
 
         # Map ESPN stat names to our scoring categories
         stat_mapping = {
