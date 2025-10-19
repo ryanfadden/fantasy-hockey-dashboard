@@ -15,16 +15,10 @@ VALUE_SCORING = {
         "position_scarcity": 0.05,  # Position rarity bonus
     },
     "consistency_thresholds": {
-        "excellent": 0.8,  # 80%+ games with good production
-        "good": 0.6,  # 60%+ games with good production
-        "average": 0.4,  # 40%+ games with good production
-        "poor": 0.2,  # 20%+ games with good production
-    },
-    "upside_categories": {
-        "rookie": 0.3,  # Rookies get upside boost
-        "sophomore": 0.2,  # Second year players
-        "veteran": 0.1,  # Established veterans
-        "declining": -0.1,  # Players showing decline
+        "excellent": 0.8,  # 80%+ games at or above average
+        "good": 0.6,       # 60%+ games at or above average
+        "average": 0.4,    # 40%+ games at or above average
+        "poor": 0.2,       # 20%+ games at or above average
     },
     "position_scarcity_multipliers": {
         "C": 1.0,  # Centers are common
