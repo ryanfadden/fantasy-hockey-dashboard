@@ -17,7 +17,7 @@ load_dotenv()
 
 def run_data_collection():
     """Run the data collection process"""
-    print("🔄 Starting data collection...")
+    print("Starting data collection...")
 
     try:
         # Run data collection with a longer timeout
@@ -30,12 +30,12 @@ def run_data_collection():
         )  # 10 minute timeout
 
         if result.returncode == 0:
-            print("✅ Data collection completed successfully!")
+            print("Data collection completed successfully!")
             if result.stdout:
                 print("STDOUT:", result.stdout[-500:])  # Last 500 chars
             return True
         else:
-            print("❌ Data collection failed!")
+            print("Data collection failed!")
             if result.stderr:
                 print("STDERR:", result.stderr[-500:])  # Last 500 chars
             if result.stdout:
@@ -43,16 +43,16 @@ def run_data_collection():
             return False
 
     except subprocess.TimeoutExpired:
-        print("⏰ Data collection timed out after 10 minutes")
+        print("Data collection timed out after 10 minutes")
         return False
     except Exception as e:
-        print(f"❌ Error during data collection: {e}")
+        print(f"Error during data collection: {e}")
         return False
 
 
 def start_dashboard():
     """Start the Dash dashboard"""
-    print("🚀 Starting Fantasy Hockey Dashboard...")
+    print("Starting Fantasy Hockey Dashboard...")
 
     # Import and run dashboard
     try:
@@ -60,34 +60,34 @@ def start_dashboard():
 
         dashboard_main()
     except Exception as e:
-        print(f"❌ Error starting dashboard: {e}")
+        print(f"Error starting dashboard: {e}")
         return False
 
     return True
 
 
 def main():
-    print("🏒 Fantasy Hockey Dashboard Startup")
+    print("Fantasy Hockey Dashboard Startup")
     print(f"Timestamp: {datetime.now()}")
 
     # Create all necessary directories
     directories = ["data", "output", "reports", "logs"]  # Use relative paths for local
     for directory in directories:
         if not os.path.exists(directory):
-            print(f"📁 Creating directory: {directory}")
+            print(f"Creating directory: {directory}")
             os.makedirs(directory, exist_ok=True)
 
     # Always run as web service - cron will be handled separately
-    print("🌐 Running as web service")
+    print("Running as web service")
     
     # Run data collection
     data_success = run_data_collection()
 
     if data_success:
-        print("✅ Data collection successful, starting dashboard...")
+        print("Data collection successful, starting dashboard...")
     else:
-        print("⚠️ Data collection failed, starting dashboard anyway...")
-        print("💡 You can manually trigger data collection later")
+        print("Data collection failed, starting dashboard anyway...")
+        print("You can manually trigger data collection later")
 
     # Start dashboard
     start_dashboard()
