@@ -9,7 +9,15 @@ from typing import List, Dict, Any, Optional
 import pandas as pd
 import numpy as np
 from openai import OpenAI
-from config import OPENAI_API_KEY, ANALYSIS_SETTINGS, SCORING_CATEGORIES
+from analysis_config import (
+    VALUE_SCORING, 
+    RECOMMENDATION_THRESHOLDS, 
+    ANALYSIS_SETTINGS, 
+    SCORING_CATEGORIES,
+    get_value_score_weights,
+    get_recommendation_thresholds
+)
+from config import OPENAI_API_KEY
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -240,8 +248,9 @@ class FantasyHockeyAnalyzer:
             filtered_players, key=lambda x: x["analysis"]["value_score"], reverse=True
         )
 
-        # Return top recommendations
-        max_recs = self.analysis_settings["max_recommendations"]
+        # Return top recommendations using centralized config
+        thresholds = get_recommendation_thresholds()
+        max_recs = thresholds["max_recommendations"]
         return sorted_players[:max_recs]
 
     def _get_smart_thresholds(self, players: List[Dict[str, Any]]) -> tuple:
@@ -275,13 +284,8 @@ class FantasyHockeyAnalyzer:
         """Calculate overall value score for a player"""
         analysis = player["analysis"]
 
-        # Weighted scoring (removed injury risk)
-        weights = {
-            "fantasy_points_per_game": 0.5,  # Increased weight
-            "consistency_rating": 0.25,  # Increased weight
-            "upside_potential": 0.2,  # Increased weight
-            "position_scarcity": 0.05,  # Reduced weight
-        }
+        # Use centralized weights configuration
+        weights = get_value_score_weights()
 
         score = 0.0
         score += player["fantasy_points_per_game"] * weights["fantasy_points_per_game"]

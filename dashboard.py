@@ -13,7 +13,11 @@ import glob
 from datetime import datetime
 from typing import List, Dict, Any
 from utils import get_latest_data_file, format_timestamp
-from config import DASHBOARD_CONFIG
+from analysis_config import (
+    OPENAI_PROMPTS,
+    get_openai_prompt,
+    DASHBOARD_CONFIG
+)
 
 # Initialize Dash app
 app = dash.Dash(__name__)
@@ -120,7 +124,7 @@ app.layout = html.Div(
                 # Auto-refresh
                 dcc.Interval(
                     id="interval-component",
-                    interval=5 * 60 * 1000,  # 5 minutes
+                    interval=DASHBOARD_CONFIG["refresh_interval"],
                     n_intervals=0,
                 ),
             ],
@@ -495,89 +499,25 @@ def get_detailed_swap_analysis(
         client = OpenAI(api_key=api_key)
         print("DEBUG: Client created successfully")
 
-        # Build context about the league scoring
-        scoring_context = """
-        LEAGUE SCORING SYSTEM:
-
-        Skater Scoring:
-        - Goals (G): 2 points
-        - Assists (A): 1 point
-        - Power Play Points (PPP): 0.5 points
-        - Short Handed Points (SHP): 0.5 points
-        - Shots on Goal (SOG): 0.2 points
-        - Hits (HIT): 0.4 points
-        - Blocked Shots (BLK): 0.8 points
-
-        Goaltender Scoring:
-        - Wins (W): 4 points
-        - Goals Against (GA): -1 point
-        - Saves (SV): 0.2 points
-        - Shutouts (SO): 3 points
-        - Overtime Losses (OTL): 1 point
-        """
-
-        # Build player context
-        player_context = f"""
-        CURRENT PLAYER: {current_player.get("name", "Unknown")}
-        - Position: {current_player.get("position", "Unknown")}
-        - Team: {current_player.get("team", "Unknown")}
-        - Current FP/G: {current_player.get("fantasy_points_per_game", 0):.2f}
-        - Games Played: {current_player.get("stats", {}).get("games_played", 0)}
-        - Goals: {current_player.get("stats", {}).get("goals", 0)}
-        - Assists: {current_player.get("stats", {}).get("assists", 0)}
-        - Power Play Points: {current_player.get("stats", {}).get("powerplay_points", 0)}
-        - Short Handed Points: {current_player.get("stats", {}).get("shorthanded_points", 0)}
-        - Shots on Goal: {current_player.get("stats", {}).get("shots_on_goal", 0)}
-        - Hits: {current_player.get("stats", {}).get("hits", 0)}
-        - Blocked Shots: {current_player.get("stats", {}).get("blocks", 0)}
-        
-        POTENTIAL TARGET: {target_player}
-        """
-
-        prompt = f"""Perform a comprehensive fantasy hockey analysis comparing {current_player.get("name", "Unknown")} and {target_player}.
-
-{scoring_context}
-
-I am considering dropping **{current_player.get("name", "Unknown")}** for **{target_player}**.
-
-{player_context}
-
-**IMPORTANT: Please search the internet for the latest information about these players including:**
-- Recent performance trends and hot/cold streaks
-- Injury reports and health status
-- Lineup changes and role adjustments
-- Expert projections and analysis
-- Recent news affecting their fantasy value
-- Team situation changes (trades, coaching changes, etc.)
-
-Please analyze these players under our custom scoring system considering:
-
-1. Current season performance and sample size
-2. Historical track record and career trends  
-3. Team situations and role expectations
-4. Position scarcity and roster construction
-5. Risk vs reward factors
-6. **Latest internet research findings**
-
-Provide your analysis in this format:
-
-### Player Comparison
-[Detailed comparison with exact FP/G calculations using our scoring system]
-
-### Latest Research & News
-[Summary of internet findings - recent performance, injuries, lineup changes, expert opinions]
-
-### Context  
-[Team roles, historical performance, and strategic considerations]
-
-### Verdict
-[Clear recommendation: DROP, KEEP, or CONSIDER with specific reasoning based on both stats and latest news]
-
-### Summary
-[Actionable recommendation with key factors including recent developments]
-
-Be specific about fantasy point calculations using our exact scoring system and incorporate the latest internet research into your analysis."""
-
+        # Use centralized prompt configuration
+        prompt = get_openai_prompt(
+            "swap_analysis",
+            current_player_name=current_player.get("name", "Unknown"),
+            target_player_name=target_player,
+            scoring_system=OPENAI_PROMPTS["swap_analysis"]["scoring_system"],
+            current_position=current_player.get("position", "Unknown"),
+            current_team=current_player.get("team", "Unknown"),
+            current_fp_per_game=current_player.get("fantasy_points_per_game", 0),
+            current_games_played=current_player.get("stats", {}).get("games_played", 0),
+            current_stats=f"Goals: {current_player.get('stats', {}).get('goals', 0)}, Assists: {current_player.get('stats', {}).get('assists', 0)}, PPP: {current_player.get('stats', {}).get('powerplay_points', 0)}, SHP: {current_player.get('stats', {}).get('shorthanded_points', 0)}, SOG: {current_player.get('stats', {}).get('shots_on_goal', 0)}, Hits: {current_player.get('stats', {}).get('hits', 0)}, Blocks: {current_player.get('stats', {}).get('blocks', 0)}",
+            current_value_score=current_player.get("analysis", {}).get("value_score", 0),
+            target_position="Unknown",  # We don't have target player details here
+            target_team="Unknown",
+            target_fp_per_game=0,
+            target_games_played=0,
+            target_stats="Unknown",
+            target_value_score=0
+        )
         print(f"DEBUG: Making API call with prompt length: {len(prompt)}")
         print("DEBUG: About to call OpenAI API...")
 
@@ -586,7 +526,7 @@ Be specific about fantasy point calculations using our exact scoring system and 
             messages=[
                 {
                     "role": "system",
-                    "content": "You are a fantasy hockey expert with access to the internet. You can search for the latest player news, injury reports, lineup changes, and expert analysis. Always incorporate current internet research into your analysis to provide the most up-to-date recommendations. Provide comprehensive analysis comparing players using the provided scoring system. Give specific fantasy point calculations and clear recommendations based on both statistical data and latest news.",
+                    "content": OPENAI_PROMPTS["swap_analysis"]["system_message"],
                 },
                 {"role": "user", "content": prompt},
             ],

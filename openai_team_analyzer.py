@@ -5,6 +5,12 @@ OpenAI-powered team analysis for fantasy hockey recommendations
 import os
 from typing import Dict, List, Any
 from openai import OpenAI
+from analysis_config import (
+    SWAP_ANALYSIS,
+    OPENAI_PROMPTS,
+    get_openai_prompt,
+    get_swap_analysis_config
+)
 
 
 class OpenAITeamAnalyzer:
@@ -60,11 +66,14 @@ class OpenAITeamAnalyzer:
                         - player_fp_per_game
                     )
 
-                    # Determine recommendation (more lenient thresholds)
-                    if swap_score >= 6:
+                    # Determine recommendation using centralized thresholds
+                    swap_config = get_swap_analysis_config()
+                    thresholds = swap_config["thresholds"]
+                    
+                    if swap_score >= thresholds["must_swap"]:
                         recommendation = "Must Swap"
                         rationale = f"Strong upgrade available: {best_target['name']} (+{value_score_improvement:.1f} value score, +{actual_fp_improvement:.1f} FP/G)"
-                    elif swap_score >= 3:
+                    elif swap_score >= thresholds["consider_swap"]:
                         recommendation = "Consider Swap"
                         rationale = f"Moderate upgrade: {best_target['name']} (+{value_score_improvement:.1f} value score, +{actual_fp_improvement:.1f} FP/G)"
                     else:
