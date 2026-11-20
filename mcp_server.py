@@ -14,6 +14,7 @@ On Railway:   deployed as its own service via railway-mcp.json.
 """
 
 import copy
+import json
 import logging
 import os
 import secrets
@@ -35,10 +36,12 @@ PORT = int(os.getenv("PORT", "8000"))
 mcp = FastMCP(
     "fantasy-hockey",
     instructions=(
-        "Live data and analysis for Ryan's ESPN Fantasy Hockey league. "
-        "Stats come straight from ESPN at call time (cached ~10 minutes). "
-        "Fantasy points use the league's scoring settings; call "
-        "get_scoring_config to see them."
+        "Live data and analysis for Ryan's ESPN Fantasy Hockey leagues. "
+        "Call list_leagues to see the configured leagues; every data tool "
+        "takes an optional 'league' argument (name, partial name, or league "
+        "id) and defaults to the first league. Stats come straight from ESPN "
+        "at call time (cached ~10 minutes). Computed fantasy points use the "
+        "scoring in get_scoring_config."
     ),
     stateless_http=True,
     json_response=True,
@@ -62,13 +65,62 @@ def _cached(key: str, loader, refresh: bool = False):
     return entry["value"]
 
 
-def _client():
+def _load_leagues():
+    """League registry: LEAGUES_JSON env var (JSON array of objects with
+    name, league_id, team_id and optional year), falling back to the single
+    league configured via LEAGUE_ID/TEAM_ID/YEAR."""
+    default_year = int(os.getenv("YEAR", "2026"))
+    raw = os.getenv("LEAGUES_JSON", "").strip()
+    if raw:
+        leagues = json.loads(raw)
+    else:
+        leagues = [
+            {
+                "name": "default",
+                "league_id": os.getenv("LEAGUE_ID"),
+                "team_id": os.getenv("TEAM_ID"),
+            }
+        ]
+    for lg in leagues:
+        lg.setdefault("year", default_year)
+        lg["league_id"] = str(lg["league_id"])
+        lg["team_id"] = str(lg["team_id"])
+    return leagues
+
+
+LEAGUES = _load_leagues()
+
+
+def _resolve_league(league: Optional[str]) -> Dict[str, Any]:
+    """Match a league by (partial) name or league id; default: first league."""
+    if not league:
+        return LEAGUES[0]
+    needle = league.strip().lower()
+    for lg in LEAGUES:
+        if needle == lg["league_id"] or needle == lg["name"].lower():
+            return lg
+    for lg in LEAGUES:
+        if needle in lg["name"].lower():
+            return lg
+    raise ValueError(
+        f"Unknown league {league!r}. Configured leagues: "
+        + ", ".join(f"{lg['name']} (id {lg['league_id']})" for lg in LEAGUES)
+    )
+
+
+def _client(lg: Dict[str, Any]):
     def make():
         from espn_client import ESPNFantasyClient
 
-        return ESPNFantasyClient()
+        return ESPNFantasyClient(
+            league_id=lg["league_id"], team_id=lg["team_id"], year=lg["year"]
+        )
 
-    return _cached("client", make)
+    return _cached(f"client:{lg['league_id']}", make)
+
+
+def _league_key(name: str, lg: Dict[str, Any]) -> str:
+    return f"{name}:{lg['league_id']}"
 
 
 POSITION_ALIASES = {
@@ -92,25 +144,45 @@ def _normalize_position(position: Optional[str]) -> Optional[str]:
 
 
 @mcp.tool()
-def get_my_team(refresh: bool = False) -> Dict[str, Any]:
+def list_leagues() -> Dict[str, Any]:
+    """List the configured fantasy hockey leagues (name, league id, Ryan's
+    team id, ESPN season year). Pass a league's name (or part of it) as the
+    'league' argument of the other tools; they default to the first league."""
+    return {"default_league": LEAGUES[0]["name"], "leagues": LEAGUES}
+
+
+@mcp.tool()
+def get_my_team(league: Optional[str] = None, refresh: bool = False) -> Dict[str, Any]:
     """Get Ryan's current fantasy roster with season stats, recent (last 7
     games) performance, last season's numbers, and injury status for every
-    player, plus the team's record."""
-    return _cached("my_team", lambda: _client().get_my_team(), refresh=refresh)
+    player, plus the team's record. 'league' picks the league by (partial)
+    name or id (see list_leagues); default is the first configured league."""
+    lg = _resolve_league(league)
+    data = _cached(
+        _league_key("my_team", lg), lambda: _client(lg).get_my_team(), refresh=refresh
+    )
+    return {"league": lg["name"], **data}
 
 
 @mcp.tool()
 def get_free_agents(
-    position: Optional[str] = None, limit: int = 25, refresh: bool = False
+    position: Optional[str] = None,
+    limit: int = 25,
+    league: Optional[str] = None,
+    refresh: bool = False,
 ) -> Dict[str, Any]:
     """Top available free agents, sorted by fantasy points per game.
 
     position: filter by Center, Left Wing, Right Wing, Defense or Goalie
     (abbreviations C, LW, RW, D, G also work). limit: max players returned
-    (1-100). refresh: bypass the 10-minute cache and refetch from ESPN.
+    (1-100). league: league (partial) name or id, default first league.
+    refresh: bypass the 10-minute cache and refetch from ESPN.
     """
+    lg = _resolve_league(league)
     agents = _cached(
-        "free_agents", lambda: _client().get_free_agents(), refresh=refresh
+        _league_key("free_agents", lg),
+        lambda: _client(lg).get_free_agents(),
+        refresh=refresh,
     )
     pos = _normalize_position(position)
     if pos:
@@ -122,6 +194,7 @@ def get_free_agents(
     )
     limit = max(1, min(int(limit), 100))
     return {
+        "league": lg["name"],
         "position_filter": pos,
         "total_matching": len(agents),
         "players": agents[:limit],
@@ -130,11 +203,15 @@ def get_free_agents(
 
 @mcp.tool()
 def get_pickup_recommendations(
-    max_results: int = 10, include_ai_insights: bool = False, refresh: bool = False
+    max_results: int = 10,
+    include_ai_insights: bool = False,
+    league: Optional[str] = None,
+    refresh: bool = False,
 ) -> Dict[str, Any]:
     """Run the statistical pickup analysis live: ranks available free agents
     by value score (fantasy points per game, consistency, upside, position
-    scarcity, historical bonus) against the current roster.
+    scarcity, historical bonus) against the current roster. 'league' picks
+    the league by (partial) name or id, default first league.
 
     include_ai_insights=True also adds the pipeline's own OpenAI-generated
     blurbs (much slower); leave it False and draw your own conclusions from
@@ -142,9 +219,14 @@ def get_pickup_recommendations(
     """
     from statistical_analyzer import FantasyHockeyAnalyzer
 
-    team = _cached("my_team", lambda: _client().get_my_team(), refresh=refresh)
+    lg = _resolve_league(league)
+    team = _cached(
+        _league_key("my_team", lg), lambda: _client(lg).get_my_team(), refresh=refresh
+    )
     agents = _cached(
-        "free_agents", lambda: _client().get_free_agents(), refresh=refresh
+        _league_key("free_agents", lg),
+        lambda: _client(lg).get_free_agents(),
+        refresh=refresh,
     )
 
     analyzer = FantasyHockeyAnalyzer()
@@ -155,32 +237,47 @@ def get_pickup_recommendations(
     recommendations = analyzer.analyze_player_pickups(team, copy.deepcopy(agents))
     max_results = max(1, min(int(max_results), 20))
     return {
+        "league": lg["name"],
         "team": team.get("team_name"),
         "recommendations": recommendations[:max_results],
     }
 
 
 @mcp.tool()
-def get_league_standings() -> List[Dict[str, Any]]:
-    """Current league standings: rank, record and points for every team."""
-    return _cached("standings", lambda: _client().get_league_standings())
+def get_league_standings(league: Optional[str] = None) -> Dict[str, Any]:
+    """Current league standings: rank, record and points for every team.
+    'league' picks the league by (partial) name or id, default first league."""
+    lg = _resolve_league(league)
+    standings = _cached(
+        _league_key("standings", lg), lambda: _client(lg).get_league_standings()
+    )
+    return {"league": lg["name"], "standings": standings}
 
 
 @mcp.tool()
-def get_current_matchups() -> Dict[str, Any]:
-    """This week's head-to-head matchups with live scores."""
-    return _cached("matchups", lambda: _client().get_matchup_data())
+def get_current_matchups(league: Optional[str] = None) -> Dict[str, Any]:
+    """This week's head-to-head matchups with live scores. 'league' picks
+    the league by (partial) name or id, default first league."""
+    lg = _resolve_league(league)
+    matchups = _cached(
+        _league_key("matchups", lg), lambda: _client(lg).get_matchup_data()
+    )
+    return {"league": lg["name"], **matchups}
 
 
 @mcp.tool()
-def find_player(name: str) -> Dict[str, Any]:
-    """Look up players in the league by name (partial, case-insensitive).
+def find_player(name: str, league: Optional[str] = None) -> Dict[str, Any]:
+    """Look up players in a league by name (partial, case-insensitive).
     Returns stats plus whether each match is rostered (and by which fantasy
-    team) or a free agent."""
+    team) or a free agent. 'league' picks the league by (partial) name or
+    id, default first league."""
+    lg = _resolve_league(league)
     needle = name.strip().lower()
     matches: List[Dict[str, Any]] = []
 
-    for team in _cached("all_teams", lambda: _client().get_all_teams_data()):
+    for team in _cached(
+        _league_key("all_teams", lg), lambda: _client(lg).get_all_teams_data()
+    ):
         for player in team.get("roster", []):
             if needle in player.get("name", "").lower():
                 matches.append(
@@ -191,17 +288,22 @@ def find_player(name: str) -> Dict[str, Any]:
                     }
                 )
 
-    for player in _cached("free_agents", lambda: _client().get_free_agents()):
+    for player in _cached(
+        _league_key("free_agents", lg), lambda: _client(lg).get_free_agents()
+    ):
         if needle in player.get("name", "").lower():
             matches.append({**player, "status": "free_agent"})
 
-    return {"query": name, "matches": matches[:10]}
+    return {"league": lg["name"], "query": name, "matches": matches[:10]}
 
 
 @mcp.tool()
 def get_scoring_config() -> Dict[str, Any]:
-    """The league's fantasy scoring weights (points per goal, assist, etc.)
-    and the thresholds/weights the recommendation engine uses."""
+    """The fantasy scoring weights (points per goal, assist, etc.) and the
+    thresholds/weights the recommendation engine uses. Note: computed
+    fantasy_points fields use this one scoring table for every configured
+    league, so for a league with different scoring settings, prefer the raw
+    stats over the computed fantasy points."""
     from analysis_config import (
         RECOMMENDATION_THRESHOLDS,
         SCORING_CATEGORIES,

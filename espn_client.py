@@ -28,11 +28,15 @@ logger = logging.getLogger(__name__)
 class ESPNFantasyClient:
     """Client for interacting with ESPN Fantasy Hockey API"""
 
-    def __init__(self):
-        """Initialize the ESPN client with authentication"""
-        self.league_id = LEAGUE_ID
-        self.year = YEAR
-        self.team_id = TEAM_ID
+    def __init__(self, league_id=None, team_id=None, year=None):
+        """Initialize the ESPN client with authentication.
+
+        Defaults to the league configured via environment variables; pass
+        league_id/team_id/year to connect to a different league or season.
+        """
+        self.league_id = league_id or LEAGUE_ID
+        self.year = int(year) if year else YEAR
+        self.team_id = team_id if team_id is not None else TEAM_ID
 
         # Initialize league connection
         try:
@@ -203,8 +207,8 @@ class ESPNFantasyClient:
         try:
             stats = getattr(player, "stats", {})
 
-            # ESPN API returns stats in nested format: 'Total 2026' -> 'total' -> actual stats
-            total_stats = stats.get("Total 2026", {}).get("total", {})
+            # ESPN API returns stats in nested format: 'Total <year>' -> 'total' -> actual stats
+            total_stats = stats.get(f"Total {self.year}", {}).get("total", {})
 
             # For goalies, use GS (Games Started) instead of GP (Games Played)
             games_played = int(total_stats.get("GP", 0))
@@ -270,7 +274,7 @@ class ESPNFantasyClient:
             stats = getattr(player, "stats", {})
 
             # Get last 7 games stats
-            last_7_stats = stats.get("Last 7 2026", {}).get("total", {})
+            last_7_stats = stats.get(f"Last 7 {self.year}", {}).get("total", {})
             last_7_points = int(last_7_stats.get("G", 0) + last_7_stats.get("A", 0))
             last_7_games = int(last_7_stats.get("GP", 1))  # Avoid division by zero
 
@@ -294,8 +298,8 @@ class ESPNFantasyClient:
         try:
             stats = getattr(player, "stats", {})
 
-            # Only check for 2025 data (last year) - simplified approach
-            last_year_stats = stats.get("Total 2025", {}).get("total", {})
+            # Only check for last year's data - simplified approach
+            last_year_stats = stats.get(f"Total {self.year - 1}", {}).get("total", {})
 
             if not last_year_stats:
                 return {
@@ -325,7 +329,7 @@ class ESPNFantasyClient:
                 "games_played": last_year_gp,
                 "fantasy_points": last_year_fp,
                 "fantasy_points_per_game": last_year_fp_per_game,
-                "season": "2024-2025",
+                "season": f"{self.year - 2}-{self.year - 1}",
                 "years_analyzed": 1,
             }
         except Exception as e:
