@@ -36,12 +36,14 @@ PORT = int(os.getenv("PORT", "8000"))
 mcp = FastMCP(
     "fantasy-hockey",
     instructions=(
-        "Live data and analysis for Ryan's ESPN Fantasy Hockey leagues. "
-        "Call list_leagues to see the configured leagues; every data tool "
-        "takes an optional 'league' argument (name, partial name, or league "
-        "id) and defaults to the first league. Stats come straight from ESPN "
-        "at call time (cached ~10 minutes). Computed fantasy points use the "
-        "scoring in get_scoring_config."
+        "Live data and analysis for Ryan's ESPN fantasy leagues (hockey and "
+        "football). Call list_leagues to see the configured leagues and each "
+        "one's sport; every data tool takes an optional 'league' argument "
+        "(name, partial name, or league id) and defaults to the first league. "
+        "Stats come straight from ESPN at call time (cached ~10 minutes). "
+        "Hockey fantasy points are computed with the scoring in "
+        "get_scoring_config; football points come from ESPN already scored "
+        "with each league's own settings."
     ),
     stateless_http=True,
     json_response=True,
@@ -67,8 +69,9 @@ def _cached(key: str, loader, refresh: bool = False):
 
 def _load_leagues():
     """League registry: LEAGUES_JSON env var (JSON array of objects with
-    name, league_id, team_id and optional year), falling back to the single
-    league configured via LEAGUE_ID/TEAM_ID/YEAR."""
+    name, league_id, team_id and optional year/sport), falling back to the
+    single league configured via LEAGUE_ID/TEAM_ID/YEAR. sport is "hockey"
+    (default) or "football"."""
     default_year = int(os.getenv("YEAR", "2026"))
     raw = os.getenv("LEAGUES_JSON", "").strip()
     if raw:
@@ -83,6 +86,7 @@ def _load_leagues():
         ]
     for lg in leagues:
         lg.setdefault("year", default_year)
+        lg["sport"] = str(lg.get("sport", "hockey")).lower()
         lg["league_id"] = str(lg["league_id"])
         lg["team_id"] = str(lg["team_id"])
     return leagues
@@ -110,6 +114,12 @@ def _resolve_league(league: Optional[str]) -> Dict[str, Any]:
 
 def _client(lg: Dict[str, Any]):
     def make():
+        if lg["sport"] == "football":
+            from espn_football_client import ESPNFootballClient
+
+            return ESPNFootballClient(
+                league_id=lg["league_id"], team_id=lg["team_id"], year=lg["year"]
+            )
         from espn_client import ESPNFantasyClient
 
         return ESPNFantasyClient(
@@ -117,6 +127,15 @@ def _client(lg: Dict[str, Any]):
         )
 
     return _cached(f"client:{lg['league_id']}", make)
+
+
+def _require_hockey(lg: Dict[str, Any], tool: str):
+    if lg["sport"] != "hockey":
+        raise ValueError(
+            f"{tool} only works for hockey leagues; {lg['name']!r} is a "
+            f"{lg['sport']} league. Use get_free_agents (sorted by fantasy "
+            "points per game, scored with the league's own settings) instead."
+        )
 
 
 def _league_key(name: str, lg: Dict[str, Any]) -> str:
@@ -131,11 +150,22 @@ POSITION_ALIASES = {
     "g": "Goalie",
 }
 
+FOOTBALL_POSITION_ALIASES = {
+    "dst": "D/ST",
+    "d/st": "D/ST",
+    "def": "D/ST",
+    "defense": "D/ST",
+}
 
-def _normalize_position(position: Optional[str]) -> Optional[str]:
+
+def _normalize_position(position: Optional[str], sport: str = "hockey") -> Optional[str]:
     if not position:
         return None
-    return POSITION_ALIASES.get(position.strip().lower(), position.strip().title())
+    needle = position.strip().lower()
+    if sport == "football":
+        # ESPN football positions are abbreviations: QB, RB, WR, TE, K, D/ST.
+        return FOOTBALL_POSITION_ALIASES.get(needle, position.strip().upper())
+    return POSITION_ALIASES.get(needle, position.strip().title())
 
 
 # ---------------------------------------------------------------------------
@@ -145,18 +175,19 @@ def _normalize_position(position: Optional[str]) -> Optional[str]:
 
 @mcp.tool()
 def list_leagues() -> Dict[str, Any]:
-    """List the configured fantasy hockey leagues (name, league id, Ryan's
-    team id, ESPN season year). Pass a league's name (or part of it) as the
-    'league' argument of the other tools; they default to the first league."""
+    """List the configured fantasy leagues (name, sport, league id, Ryan's
+    team id, ESPN season year). Covers hockey and football leagues. Pass a
+    league's name (or part of it) as the 'league' argument of the other
+    tools; they default to the first league."""
     return {"default_league": LEAGUES[0]["name"], "leagues": LEAGUES}
 
 
 @mcp.tool()
 def get_my_team(league: Optional[str] = None, refresh: bool = False) -> Dict[str, Any]:
-    """Get Ryan's current fantasy roster with season stats, recent (last 7
-    games) performance, last season's numbers, and injury status for every
-    player, plus the team's record. 'league' picks the league by (partial)
-    name or id (see list_leagues); default is the first configured league."""
+    """Get Ryan's current fantasy roster with season stats and injury status
+    for every player, plus the team's record (hockey also includes last-7-
+    games form and last season's numbers). 'league' picks the league by
+    (partial) name or id (see list_leagues); default is the first league."""
     lg = _resolve_league(league)
     data = _cached(
         _league_key("my_team", lg), lambda: _client(lg).get_my_team(), refresh=refresh
@@ -173,10 +204,11 @@ def get_free_agents(
 ) -> Dict[str, Any]:
     """Top available free agents, sorted by fantasy points per game.
 
-    position: filter by Center, Left Wing, Right Wing, Defense or Goalie
-    (abbreviations C, LW, RW, D, G also work). limit: max players returned
-    (1-100). league: league (partial) name or id, default first league.
-    refresh: bypass the 10-minute cache and refetch from ESPN.
+    position: hockey — Center, Left Wing, Right Wing, Defense, Goalie
+    (abbreviations C, LW, RW, D, G also work); football — QB, RB, WR, TE,
+    K, D/ST. limit: max players returned (1-100). league: league (partial)
+    name or id, default first league. refresh: bypass the 10-minute cache
+    and refetch from ESPN.
     """
     lg = _resolve_league(league)
     agents = _cached(
@@ -184,7 +216,7 @@ def get_free_agents(
         lambda: _client(lg).get_free_agents(),
         refresh=refresh,
     )
-    pos = _normalize_position(position)
+    pos = _normalize_position(position, lg["sport"])
     if pos:
         agents = [a for a in agents if a.get("position") == pos]
     agents = sorted(
@@ -210,8 +242,10 @@ def get_pickup_recommendations(
 ) -> Dict[str, Any]:
     """Run the statistical pickup analysis live: ranks available free agents
     by value score (fantasy points per game, consistency, upside, position
-    scarcity, historical bonus) against the current roster. 'league' picks
-    the league by (partial) name or id, default first league.
+    scarcity, historical bonus) against the current roster. Hockey leagues
+    only — for football use get_free_agents, whose points are already scored
+    with the league's own settings. 'league' picks the league by (partial)
+    name or id, default first league.
 
     include_ai_insights=True also adds the pipeline's own OpenAI-generated
     blurbs (much slower); leave it False and draw your own conclusions from
@@ -220,6 +254,7 @@ def get_pickup_recommendations(
     from statistical_analyzer import FantasyHockeyAnalyzer
 
     lg = _resolve_league(league)
+    _require_hockey(lg, "get_pickup_recommendations")
     team = _cached(
         _league_key("my_team", lg), lambda: _client(lg).get_my_team(), refresh=refresh
     )
@@ -299,11 +334,12 @@ def find_player(name: str, league: Optional[str] = None) -> Dict[str, Any]:
 
 @mcp.tool()
 def get_scoring_config() -> Dict[str, Any]:
-    """The fantasy scoring weights (points per goal, assist, etc.) and the
-    thresholds/weights the recommendation engine uses. Note: computed
-    fantasy_points fields use this one scoring table for every configured
-    league, so for a league with different scoring settings, prefer the raw
-    stats over the computed fantasy points."""
+    """The HOCKEY fantasy scoring weights (points per goal, assist, etc.)
+    and the thresholds/weights the recommendation engine uses. Computed
+    hockey fantasy_points fields use this one scoring table for every
+    hockey league, so for a hockey league with different scoring settings,
+    prefer the raw stats. Football leagues don't use this table at all —
+    their points come from ESPN scored with each league's own settings."""
     from analysis_config import (
         RECOMMENDATION_THRESHOLDS,
         SCORING_CATEGORIES,
